@@ -127,3 +127,18 @@ export const getSuggestions = async (type: string, query: string = ''): Promise<
     return response.data;
 };
 
+export const analyzeResumeFile = async (file: File) => {
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await axios.post(`${API_URL}/analyze-resume-file`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error analyzing resume:', error);
+        throw error;
+    }
+};

@@ -120,7 +120,6 @@ export const POPULAR_LOCATIONS = [
     // Districts - Tamil Nadu
     "Ariyalur, Tamil Nadu",
     "Chengalpattu, Tamil Nadu",
-    "Chennai, Tamil Nadu",
     "Coimbatore, Tamil Nadu",
     "Cuddalore, Tamil Nadu",
     "Dharmapuri, Tamil Nadu",
@@ -230,7 +229,6 @@ export const POPULAR_LOCATIONS = [
     "Osmanabad, Maharashtra",
     "Palghar, Maharashtra",
     "Parbhani, Maharashtra",
-    "Pune, Maharashtra",
     "Raigad, Maharashtra",
     "Ratnagiri, Maharashtra",
     "Sangli, Maharashtra",

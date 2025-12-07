@@ -18,6 +18,7 @@ import PyPDF2
 import models
 import schemas
 import auth
+import resume_analyzer
 from database import engine, get_db
 from scrapers.google_search import search_jobs_google
 
@@ -220,6 +221,35 @@ def get_suggestions(type: str, query: str = ""):
     
     # Return top 10 matches
     return results[:10]
+
+@app.post("/analyze-resume-file")
+async def analyze_resume_file(file: UploadFile = File(...), current_user: models.User = Depends(auth.get_current_user)):
+    """Analyze an uploaded resume file (PDF only for now) and return an ATS score"""
+    
+    extracted_text = ""
+    try:
+        content = await file.read()
+        
+        if file.filename.endswith('.pdf'):
+            pdf_file = io.BytesIO(content)
+            reader = PyPDF2.PdfReader(pdf_file)
+            for page in reader.pages:
+                text = page.extract_text()
+                if text:
+                    extracted_text += text + "\n"
+        else:
+             # Basic fallback for text/other files if needed, or just error
+             raise HTTPException(status_code=400, detail="Only PDF files are supported for analysis currently")
+             
+    except Exception as e:
+        print(f"Error reading resume file analysis: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process file")
+
+    if not extracted_text.strip():
+        raise HTTPException(status_code=400, detail="Could not extract text from file")
+
+    analysis = resume_analyzer.analyze_resume_text(extracted_text)
+    return analysis
 
 @app.post("/generate-resume")
 async def generate_resume_endpoint(

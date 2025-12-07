@@ -171,8 +171,8 @@ function HomeContent() {
                                     </button>
                                 )}
                                 <datalist id="job-suggestions">
-                                    {POPULAR_JOB_TITLES.map((title) => (
-                                        <option key={title} value={title} />
+                                    {POPULAR_JOB_TITLES.map((title, i) => (
+                                        <option key={`${title}-${i}`} value={title} />
                                     ))}
                                 </datalist>
                             </div>
@@ -200,8 +200,8 @@ function HomeContent() {
                                     </button>
                                 )}
                                 <datalist id="location-suggestions">
-                                    {POPULAR_LOCATIONS.map((loc) => (
-                                        <option key={loc} value={loc} />
+                                    {POPULAR_LOCATIONS.map((loc, i) => (
+                                        <option key={`${loc}-${i}`} value={loc} />
                                     ))}
                                 </datalist>
                             </div>
@@ -290,7 +290,7 @@ function HomeContent() {
                     <>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {jobs.map((job, index) => (
-                                <JobCard key={index} job={job} />
+                                <JobCard key={`${job.id || 'job'}-${index}`} job={job} />
                             ))}
                         </div>
 

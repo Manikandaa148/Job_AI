@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from 'react';
 import { POPULAR_JOB_TITLES, POPULAR_LOCATIONS, POPULAR_SKILLS } from '@/lib/constants';
 import { getProfile, updateProfile } from '@/lib/api';
 import { ImageCropper } from './ImageCropper';
+import { DonutChart } from './DonutChart';
+import { RefreshCw } from 'lucide-react';
 
 interface ProfileModalProps {
     isOpen: boolean;
@@ -56,7 +58,7 @@ function TagInput({ label, icon, tags, onAddTag, onRemoveTag, suggestions, place
 
             <div className="flex flex-wrap gap-2 mb-2">
                 {tags.map((tag, index) => (
-                    <span key={index} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-200 border border-blue-200 dark:border-blue-500/30">
+                    <span key={`${tag}-${index}`} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-200 border border-blue-200 dark:border-blue-500/30">
                         {tag}
                         <button
                             type="button"
@@ -233,6 +235,36 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     const companyLogoInputRef = useRef<HTMLInputElement>(null);
     const [activeExperienceId, setActiveExperienceId] = useState<string | null>(null);
     const [cropImage, setCropImage] = useState<string | null>(null);
+    const [atsScore, setAtsScore] = useState(0);
+    const [analysisBreakdown, setAnalysisBreakdown] = useState<string[]>([]);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+    // Initial load only
+    useEffect(() => {
+        // no-op for now unless we want to load existing resume analysis
+    }, [isOpen]);
+
+    // Resume Analysis File Handler
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setFormData(prev => ({ ...prev, resume: file }));
+
+            // Analyze immediately
+            setIsAnalyzing(true);
+            try {
+                const data = await import('@/lib/api').then(m => m.analyzeResumeFile(file));
+                setAtsScore(data.score);
+                setAnalysisBreakdown(data.breakdown);
+            } catch (err: any) {
+                console.error("Resume analysis failed", err);
+                const msg = err.response?.data?.detail || "Could not analyze file";
+                alert(msg);
+            } finally {
+                setIsAnalyzing(false);
+            }
+        }
+    };
 
     if (!isOpen) return null;
 
@@ -241,11 +273,6 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setFormData(prev => ({ ...prev, resume: e.target.files![0] }));
-        }
-    };
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -530,6 +557,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                                     }}
                                 />
                             </div>
+
                         </div>
 
                         {/* Personal & Professional Info Grid */}
@@ -1127,6 +1155,34 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                                 onChange={handleFileChange}
                             />
                         </div>
+
+                        {/* Resume Analysis Result */}
+                        {(atsScore > 0 || isAnalyzing) && (
+                            <div className="flex items-center gap-6 p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 animate-in fade-in slide-in-from-top-2">
+                                <div className="flex-shrink-0">
+                                    <DonutChart score={atsScore} size={80} strokeWidth={6} />
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="text-sm font-semibold text-slate-800 dark:text-blue-100 flex items-center gap-2">
+                                        Resume ATS Score
+                                        {isAnalyzing && <RefreshCw className="w-3 h-3 animate-spin text-blue-500" />}
+                                    </h4>
+                                    <p className="text-xs text-slate-500 dark:text-blue-200/60 mb-2">
+                                        Based on content analysis of your uploaded resume.
+                                    </p>
+                                    {analysisBreakdown.length > 0 && (
+                                        <div className="text-xs text-slate-600 dark:text-slate-300">
+                                            <span className="font-medium text-red-500">Improvements needed:</span>
+                                            <ul className="list-disc list-inside mt-1 space-y-0.5">
+                                                {analysisBreakdown.slice(0, 3).map((tip, i) => (
+                                                    <li key={i}>{tip}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="pt-6 flex justify-end gap-3">
