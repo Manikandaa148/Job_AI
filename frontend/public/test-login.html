@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Auto-Login</title>
+</head>
+<body>
+    <h1>Testing Auto-Login</h1>
+    <div id="status">Checking...</div>
+    <div id="token"></div>
+    <div id="user"></div>
+    
+    <script>
+        async function test() {
+            const statusDiv = document.getElementById('status');
+            const tokenDiv = document.getElementById('token');
+            const userDiv = document.getElementById('user');
+            
+            // Check if token exists
+            const token = localStorage.getItem('token');
+            if (token) {
+                statusDiv.innerHTML = '✓ Token found in localStorage';
+                tokenDiv.innerHTML = `Token: ${token.substring(0, 20)}...`;
+                
+                // Try to fetch user profile
+                try {
+                    const response = await fetch('http://localhost:8000/users/me', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const user = await response.json();
+                        userDiv.innerHTML = `✓ User: ${user.full_name} (${user.email})`;
+                    } else {
+                        userDiv.innerHTML = `✗ Failed to fetch user: ${response.status}`;
+                    }
+                } catch (e) {
+                    userDiv.innerHTML = `✗ Error: ${e.message}`;
+                }
+            } else {
+                statusDiv.innerHTML = '✗ No token found - auto-login may not have worked';
+                
+                // Try to login
+                try {
+                    const loginResponse = await fetch('http://localhost:8000/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: 'username=guest@jobai.com&password=guest123'
+                    });
+                    
+                    if (loginResponse.ok) {
+                        const data = await loginResponse.json();
+                        localStorage.setItem('token', data.access_token);
+                        statusDiv.innerHTML = '✓ Logged in successfully!';
+                        tokenDiv.innerHTML = `Token: ${data.access_token.substring(0, 20)}...`;
+                        
+                        // Reload to test
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        statusDiv.innerHTML = `✗ Login failed: ${loginResponse.status}`;
+                    }
+                } catch (e) {
+                    statusDiv.innerHTML = `✗ Login error: ${e.message}`;
+                }
+            }
+        }
+        
+        test();
+    </script>
+</body>
+</html>
