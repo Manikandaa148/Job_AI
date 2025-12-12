@@ -4,6 +4,7 @@ requests
 python-dotenv
 pydantic
 sqlalchemy
+bcrypt>=4.0.0
 passlib[bcrypt]
 python-jose[cryptography]
 python-multipart
