@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -13,20 +13,43 @@ SECRET_KEY = "your-secret-key-keep-it-secret" # In production, use env var
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440 # 24 hours
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-def verify_password(plain_password, hashed_password):
-    # Truncate password to 72 bytes for bcrypt
-    if len(plain_password.encode('utf-8')) > 72:
-        plain_password = plain_password[:72]
-    return pwd_context.verify(plain_password, hashed_password)
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a password against a hashed password using bcrypt"""
+    try:
+        # Encode strings to bytes
+        password_bytes = plain_password.encode('utf-8')
+        hashed_bytes = hashed_password.encode('utf-8')
+        
+        # Bcrypt has 72 byte limit, truncate if needed
+        if len(password_bytes) > 72:
+            password_bytes = password_bytes[:72]
+        
+        return bcrypt.checkpw(password_bytes, hashed_bytes)
+    except Exception as e:
+        print(f"Password verification error: {e}")
+        return False
 
-def get_password_hash(password):
-    # Truncate password to 72 bytes for bcrypt
-    if len(password.encode('utf-8')) > 72:
-        password = password[:72]
-    return pwd_context.hash(password)
+def get_password_hash(password: str) -> str:
+    """Hash a password using bcrypt"""
+    try:
+        # Encode to bytes
+        password_bytes = password.encode('utf-8')
+        
+        # Bcrypt has 72 byte limit, truncate if needed
+        if len(password_bytes) > 72:
+            password_bytes = password_bytes[:72]
+        
+        # Generate salt and hash
+        salt = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(password_bytes, salt)
+        
+        # Return as string
+        return hashed.decode('utf-8')
+    except Exception as e:
+        print(f"Password hashing error: {e}")
+        raise
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
