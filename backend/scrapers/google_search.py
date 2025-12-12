@@ -132,7 +132,7 @@ def _get_mock_jobs(query: str = "", location: str = "", experience_level: List[s
             company="Tech Corp",
             location=location or "Remote",
             description=f"We are looking for a senior developer with Python and React experience. {query or 'Software development'} role with competitive salary.",
-            url="https://example.com/job1",
+            url="https://www.linkedin.com/jobs/search/?keywords=software%20engineer",
             source="LinkedIn"
         ),
         Job(
@@ -140,7 +140,7 @@ def _get_mock_jobs(query: str = "", location: str = "", experience_level: List[s
             company="Innovation Labs",
             location=location or "New York, NY",
             description=f"Lead our product team to build the next generation of AI tools. {query or 'Product management'} position available.",
-            url="https://example.com/job2",
+            url="https://www.glassdoor.com/Job/jobs.htm?sc.keyword=product%20manager",
             source="Glassdoor"
         ),
         Job(
@@ -148,7 +148,7 @@ def _get_mock_jobs(query: str = "", location: str = "", experience_level: List[s
             company="Data AI",
             location=location or "San Francisco, CA",
             description=f"Analyze large datasets and build predictive models. {query or 'Data science'} role with PyTorch experience required.",
-            url="https://example.com/job3",
+            url="https://www.indeed.com/jobs?q=data+scientist",
             source="Indeed"
         ),
         Job(
@@ -156,7 +156,7 @@ def _get_mock_jobs(query: str = "", location: str = "", experience_level: List[s
             company="Startup Inc",
             location=location or "Bangalore",
             description=f"Looking for a developer with React skills. {query or 'Frontend development'} position for freshers and experienced.",
-            url="https://example.com/job4",
+            url="https://www.naukri.com/frontend-developer-jobs",
             source="Naukri"
         ),
         Job(
@@ -164,7 +164,7 @@ def _get_mock_jobs(query: str = "", location: str = "", experience_level: List[s
             company="WebTech Solutions",
             location=location or "Austin, TX",
             description=f"Build modern web applications using MERN stack. {query or 'Full stack'} development role.",
-            url="https://example.com/job5",
+            url="https://www.linkedin.com/jobs/search/?keywords=full%20stack%20developer",
             source="LinkedIn"
         ),
         Job(
@@ -172,7 +172,7 @@ def _get_mock_jobs(query: str = "", location: str = "", experience_level: List[s
             company="Cloud Systems",
             location=location or "Seattle, WA",
             description=f"Manage cloud infrastructure and CI/CD pipelines. {query or 'DevOps'} position with AWS experience.",
-            url="https://example.com/job6",
+            url="https://www.indeed.com/jobs?q=devops+engineer",
             source="Indeed"
         ),
         Job(
@@ -180,7 +180,7 @@ def _get_mock_jobs(query: str = "", location: str = "", experience_level: List[s
             company="AI Innovations",
             location=location or "Boston, MA",
             description=f"Develop ML models and deploy them to production. {query or 'Machine learning'} role with TensorFlow.",
-            url="https://example.com/job7",
+            url="https://www.glassdoor.com/Job/jobs.htm?sc.keyword=machine%20learning%20engineer",
             source="Glassdoor"
         ),
         Job(
@@ -188,7 +188,7 @@ def _get_mock_jobs(query: str = "", location: str = "", experience_level: List[s
             company="Design Studio",
             location=location or "Los Angeles, CA",
             description=f"Create beautiful and intuitive user interfaces. {query or 'Design'} position for creative minds.",
-            url="https://example.com/job8",
+            url="https://www.linkedin.com/jobs/search/?keywords=ui%20ux%20designer",
             source="LinkedIn"
         ),
     ]
@@ -196,19 +196,19 @@ def _get_mock_jobs(query: str = "", location: str = "", experience_level: List[s
     # Always return at least some jobs
     filtered_jobs = all_mock_jobs
     
-    # Filter by platform if specified
+    # Filter by platform if specified (but don't make results too restrictive)
     if platforms and "All" not in platforms:
-        platform_filtered = [job for job in filtered_jobs if any(p.lower() in job.source.lower() for p in platforms)]
-        if platform_filtered:  # Only apply filter if it returns results
+        platform_filtered = [job for job in all_mock_jobs if any(p.lower() in job.source.lower() for p in platforms)]
+        if len(platform_filtered) >= 3:  # Only apply if we get at least 3 results
             filtered_jobs = platform_filtered
 
-    # Filter by experience if specified (simple keyword match in title/description)
+    # Filter by experience if specified (but don't make results too restrictive)
     if experience_level and experience_level:
         exp_filtered = [
             job for job in filtered_jobs 
             if any(exp.lower() in job.title.lower() or exp.lower() in job.description.lower() for exp in experience_level)
         ]
-        if exp_filtered:  # Only apply filter if it returns results
+        if len(exp_filtered) >= 2:  # Only apply if we get at least 2 results
             filtered_jobs = exp_filtered
 
     print(f"DEBUG: Returning {len(filtered_jobs)} mock jobs")
