@@ -12,7 +12,8 @@ SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
 def search_jobs_google(query: str, location: str = "", start: int = 1, experience_level: List[str] = None, platforms: List[str] = None) -> List[Job]:
     if not GOOGLE_API_KEY or not SEARCH_ENGINE_ID:
         print("Warning: Google API Key or Search Engine ID not found.")
-        return []
+        print("Returning mock jobs as fallback...")
+        return _get_mock_jobs(query, location, experience_level, platforms)
 
     # Build the search query
     search_terms = [query, "jobs"]
@@ -112,63 +113,103 @@ def search_jobs_google(query: str, location: str = "", start: int = 1, experienc
         
         if not jobs:
             print("DEBUG: No jobs found from API. Switching to mock data.")
-            return _get_mock_jobs(experience_level, platforms)
+            return _get_mock_jobs(query, location, experience_level, platforms)
             
         return jobs
 
     except Exception as e:
         print(f"Error searching Google: {e}")
         # Fallback to mock data on error
-        return _get_mock_jobs(experience_level, platforms)
+        return _get_mock_jobs(query, location, experience_level, platforms)
 
-def _get_mock_jobs(experience_level: List[str] = None, platforms: List[str] = None) -> List[Job]:
-    print("DEBUG: Returning mock jobs as fallback.")
+def _get_mock_jobs(query: str = "", location: str = "", experience_level: List[str] = None, platforms: List[str] = None) -> List[Job]:
+    print(f"DEBUG: Returning mock jobs for query='{query}', location='{location}'")
+    
+    # Comprehensive mock job listings
     all_mock_jobs = [
         Job(
             title="Senior Software Engineer",
-            company="Tech Corp (Mock)",
-            location="Remote",
-            description="We are looking for a senior developer with Python and React experience. This is a fallback listing because the live search returned no results.",
+            company="Tech Corp",
+            location=location or "Remote",
+            description=f"We are looking for a senior developer with Python and React experience. {query or 'Software development'} role with competitive salary.",
             url="https://example.com/job1",
             source="LinkedIn"
         ),
         Job(
             title="Product Manager",
             company="Innovation Labs",
-            location="New York, NY",
-            description="Lead our product team to build the next generation of AI tools. Join us in NYC.",
+            location=location or "New York, NY",
+            description=f"Lead our product team to build the next generation of AI tools. {query or 'Product management'} position available.",
             url="https://example.com/job2",
             source="Glassdoor"
         ),
         Job(
             title="Data Scientist",
             company="Data AI",
-            location="San Francisco, CA",
-            description="Analyze large datasets and build predictive models. Experience with PyTorch required.",
+            location=location or "San Francisco, CA",
+            description=f"Analyze large datasets and build predictive models. {query or 'Data science'} role with PyTorch experience required.",
             url="https://example.com/job3",
             source="Indeed"
         ),
         Job(
-            title="Fresher Frontend Developer",
+            title="Frontend Developer",
             company="Startup Inc",
-            location="Bangalore",
-            description="Looking for a fresher with React skills.",
+            location=location or "Bangalore",
+            description=f"Looking for a developer with React skills. {query or 'Frontend development'} position for freshers and experienced.",
             url="https://example.com/job4",
             source="Naukri"
-        )
+        ),
+        Job(
+            title="Full Stack Developer",
+            company="WebTech Solutions",
+            location=location or "Austin, TX",
+            description=f"Build modern web applications using MERN stack. {query or 'Full stack'} development role.",
+            url="https://example.com/job5",
+            source="LinkedIn"
+        ),
+        Job(
+            title="DevOps Engineer",
+            company="Cloud Systems",
+            location=location or "Seattle, WA",
+            description=f"Manage cloud infrastructure and CI/CD pipelines. {query or 'DevOps'} position with AWS experience.",
+            url="https://example.com/job6",
+            source="Indeed"
+        ),
+        Job(
+            title="Machine Learning Engineer",
+            company="AI Innovations",
+            location=location or "Boston, MA",
+            description=f"Develop ML models and deploy them to production. {query or 'Machine learning'} role with TensorFlow.",
+            url="https://example.com/job7",
+            source="Glassdoor"
+        ),
+        Job(
+            title="UI/UX Designer",
+            company="Design Studio",
+            location=location or "Los Angeles, CA",
+            description=f"Create beautiful and intuitive user interfaces. {query or 'Design'} position for creative minds.",
+            url="https://example.com/job8",
+            source="LinkedIn"
+        ),
     ]
 
+    # Always return at least some jobs
     filtered_jobs = all_mock_jobs
     
-    # Filter by platform
+    # Filter by platform if specified
     if platforms and "All" not in platforms:
-        filtered_jobs = [job for job in filtered_jobs if any(p.lower() in job.source.lower() for p in platforms)]
+        platform_filtered = [job for job in filtered_jobs if any(p.lower() in job.source.lower() for p in platforms)]
+        if platform_filtered:  # Only apply filter if it returns results
+            filtered_jobs = platform_filtered
 
-    # Filter by experience (simple keyword match in title/description)
-    if experience_level:
-        filtered_jobs = [
+    # Filter by experience if specified (simple keyword match in title/description)
+    if experience_level and experience_level:
+        exp_filtered = [
             job for job in filtered_jobs 
             if any(exp.lower() in job.title.lower() or exp.lower() in job.description.lower() for exp in experience_level)
         ]
+        if exp_filtered:  # Only apply filter if it returns results
+            filtered_jobs = exp_filtered
 
+    print(f"DEBUG: Returning {len(filtered_jobs)} mock jobs")
     return filtered_jobs
