@@ -4,6 +4,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from pydantic import BaseModel
 import io
 import json
 
@@ -19,6 +20,7 @@ import models
 import schemas
 import auth
 import resume_analyzer
+import auto_apply_agent
 from database import engine, get_db
 from scrapers.google_search import search_jobs_google
 
@@ -140,6 +142,15 @@ def update_user_me(user_update: schemas.UserUpdate, current_user: models.User = 
     if user_update.projects is not None:
         current_user.projects = user_update.projects
         print(f"Updated projects: {len(user_update.projects)} items")
+    if user_update.linkedin_url is not None:
+        current_user.linkedin_url = user_update.linkedin_url
+        print(f"Updated linkedin_url: {user_update.linkedin_url}")
+    if user_update.github_url is not None:
+        current_user.github_url = user_update.github_url
+        print(f"Updated github_url: {user_update.github_url}")
+    if user_update.portfolio_url is not None:
+        current_user.portfolio_url = user_update.portfolio_url
+        print(f"Updated portfolio_url: {user_update.portfolio_url}")
         
     db.commit()
     db.refresh(current_user)
@@ -611,3 +622,203 @@ async def generate_resume_endpoint(
         traceback.print_exc()
         print(f"Error building PDF: {e}")
         raise HTTPException(status_code=500, detail=f"PDF Generation Failed: {str(e)}")
+
+# Auto-Apply Endpoints
+@app.get("/auto-apply/validate")
+def validate_auto_apply(current_user: models.User = Depends(auth.get_current_user)):
+    """
+    Validate if user profile is complete for auto-apply.
+    Returns missing fields and chatbot prompts if incomplete.
+    """
+    user_data = {
+        "full_name": current_user.full_name,
+        "email": current_user.email,
+        "location": current_user.location,
+        "address": current_user.address,
+        "experience_level": current_user.experience_level,
+        "skills": current_user.skills,
+        "education": current_user.education,
+        "experience": current_user.experience,
+        "job_preferences": current_user.job_preferences,
+        "projects": current_user.projects,
+        "linkedin_url": current_user.linkedin_url,
+        "github_url": current_user.github_url,
+        "portfolio_url": current_user.portfolio_url
+    }
+    
+    result = auto_apply_agent.validate_user_for_auto_apply(user_data)
+    return result
+
+class AutoApplyRequest(BaseModel):
+    job_ids: List[str]
+    use_real_automation: Optional[bool] = False  # Set to True to use real browser automation
+
+@app.post("/auto-apply/execute")
+async def execute_auto_apply(
+    request: AutoApplyRequest,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Execute auto-apply for selected jobs.
+    
+    If use_real_automation=True, uses Selenium to actually apply to jobs.
+    Otherwise, simulates the application (for testing).
+    """
+    user_data = {
+        "full_name": current_user.full_name,
+        "email": current_user.email,
+        "location": current_user.location,
+        "address": current_user.address,
+        "phone": current_user.phone if hasattr(current_user, 'phone') else "",
+        "experience_level": current_user.experience_level,
+        "skills": current_user.skills,
+        "education": current_user.education,
+        "experience": current_user.experience,
+        "job_preferences": current_user.job_preferences,
+        "projects": current_user.projects,
+        "linkedin_url": current_user.linkedin_url,
+        "github_url": current_user.github_url,
+        "portfolio_url": current_user.portfolio_url
+    }
+    
+    # Fetch actual job details from database or search results
+    # For now, we'll use the job_ids to create job objects
+    # In production, you'd fetch these from your job database
+    jobs = []
+    for job_id in request.job_ids:
+        # TODO: Fetch actual job from database
+        # For now, create a mock job object
+        job = {
+            "id": job_id,
+            "title": f"Job {job_id}",
+            "company": f"Company {job_id}",
+            "location": "Remote",
+            "url": f"https://example.com/job/{job_id}"  # Replace with actual URL
+        }
+        jobs.append(job)
+    
+    # Use intelligent auto-apply agent if requested
+    if request.use_real_automation:
+        try:
+            # Import the intelligent agent
+            from intelligent_auto_apply_agent import process_auto_apply as intelligent_apply
+            
+            # Run in background to avoid timeout
+            result = intelligent_apply(user_data, jobs, headless=True)
+            return result
+            
+        except ImportError:
+            return {
+                "success": False,
+                "error": "Intelligent auto-apply agent not available. Please install selenium and webdriver-manager.",
+                "fallback": "Using simulation mode"
+            }
+        except Exception as e:
+            logger.error(f"Intelligent auto-apply error: {str(e)}")
+            return {
+                "success": False,
+                "error": f"Auto-apply failed: {str(e)}",
+                "details": "Check if Chrome/ChromeDriver is installed"
+            }
+    else:
+        # Use simulation mode (original behavior)
+        result = auto_apply_agent.process_auto_apply(user_data, jobs)
+        return result
+
+class ChatMessage(BaseModel):
+    message: str
+    field: Optional[str] = None
+
+@app.post("/chatbot/message")
+def process_chatbot_message(
+    chat_message: ChatMessage,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Process chatbot messages and update user profile with collected information.
+    """
+    message = chat_message.message
+    field = chat_message.field
+    
+    response = {
+        "success": False,
+        "message": "",
+        "next_field": None,
+        "completed": False
+    }
+    
+    # Process based on field type
+    if field == "full_name":
+        current_user.full_name = message
+        response["success"] = True
+        response["message"] = f"Great! I've saved your name as {message}."
+        
+    elif field == "location":
+        current_user.location = message
+        response["success"] = True
+        response["message"] = f"Perfect! Location set to {message}."
+        
+    elif field == "experience_level":
+        current_user.experience_level = message
+        response["success"] = True
+        response["message"] = f"Got it! Experience level set to {message}."
+        
+    elif field == "skills":
+        # Parse comma-separated skills
+        skills = [s.strip() for s in message.split(",")]
+        current_user.skills = skills
+        response["success"] = True
+        response["message"] = f"Excellent! I've added {len(skills)} skills to your profile."
+        
+    elif field == "job_preferences":
+        # Parse comma-separated preferences
+        prefs = [p.strip() for p in message.split(",")]
+        current_user.job_preferences = prefs
+        response["success"] = True
+        response["message"] = f"Perfect! I've saved your job preferences."
+        
+    elif field == "education":
+        # For structured data, we'll need to guide the user through multiple steps
+        # For now, create a simple education entry
+        response["success"] = True
+        response["message"] = "I'll help you add your education. Please update it in your profile for detailed information."
+        
+    elif field == "experience":
+        # Similar to education
+        response["success"] = True
+        response["message"] = "I'll help you add your experience. Please update it in your profile for detailed information."
+    
+    else:
+        response["message"] = "I'm not sure what information you're providing. Could you clarify?"
+        return response
+    
+    # Save changes
+    if response["success"]:
+        db.commit()
+        db.refresh(current_user)
+        
+        # Check if profile is now complete
+        user_data = {
+            "full_name": current_user.full_name,
+            "email": current_user.email,
+            "location": current_user.location,
+            "experience_level": current_user.experience_level,
+            "skills": current_user.skills,
+            "education": current_user.education,
+            "experience": current_user.experience,
+            "job_preferences": current_user.job_preferences
+        }
+        
+        validation = auto_apply_agent.validate_user_for_auto_apply(user_data)
+        
+        if validation["can_auto_apply"]:
+            response["completed"] = True
+            response["message"] += " 🎉 Your profile is now complete! You can start using auto-apply."
+        elif validation["prompts"]:
+            # Get next missing field
+            response["next_field"] = validation["prompts"][0]
+            response["message"] += f" {validation['prompts'][0]['question']}"
+    
+    return response

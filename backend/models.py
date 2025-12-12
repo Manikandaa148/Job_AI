@@ -13,6 +13,9 @@ class User(Base):
     location = Column(String, nullable=True)
     experience_level = Column(String, nullable=True)
     avatar = Column(String, nullable=True)
+    linkedin_url = Column(String, nullable=True)
+    github_url = Column(String, nullable=True)
+    portfolio_url = Column(String, nullable=True)
     _skills = Column("skills", Text, nullable=True, default="[]") # Store as JSON string
 
     @property

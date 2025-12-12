@@ -10,3 +10,5 @@ python-multipart
 email-validator
 reportlab
 PyPDF2
+selenium
+webdriver-manager

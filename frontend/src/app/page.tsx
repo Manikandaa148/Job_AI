@@ -6,6 +6,7 @@ import { Search, MapPin, Briefcase } from "lucide-react";
 import { searchJobs, Job } from "@/lib/api";
 import { JobCard } from "@/components/JobCard";
 import { Header } from "@/components/Header";
+import { ChatbotButton } from "@/components/ChatbotButton";
 
 import { POPULAR_JOB_TITLES, POPULAR_LOCATIONS, EXPERIENCE_LEVELS, SEARCH_PLATFORMS, COMPANY_SIZES } from '@/lib/constants';
 
@@ -25,6 +26,14 @@ function HomeContent() {
     const [selectedExperience, setSelectedExperience] = useState<string[]>([]);
     const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(["All"]);
     const [selectedCompanySizes, setSelectedCompanySizes] = useState<string[]>([]);
+
+    // Authentication check
+    useEffect(() => {
+        const token = localStorage.getItem("token");
+        if (!token) {
+            router.push("/login");
+        }
+    }, [router]);
 
     // Initialize from URL params
     useEffect(() => {
@@ -333,6 +342,9 @@ function HomeContent() {
                     </div>
                 )}
             </div>
+
+            {/* Chatbot Button */}
+            <ChatbotButton />
         </main>
     );
 }

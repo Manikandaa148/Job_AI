@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { login, register } from "@/lib/api";
 import { Briefcase, Mail, Lock, User, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
@@ -12,12 +12,27 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    const [rememberMe, setRememberMe] = useState(false);
 
     const [formData, setFormData] = useState({
         email: "",
         password: "",
         fullName: ""
     });
+
+    // Load saved credentials on mount
+    useEffect(() => {
+        const savedEmail = localStorage.getItem("rememberedEmail");
+        const savedPassword = localStorage.getItem("rememberedPassword");
+        if (savedEmail && savedPassword) {
+            setFormData(prev => ({
+                ...prev,
+                email: savedEmail,
+                password: savedPassword
+            }));
+            setRememberMe(true);
+        }
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -30,6 +45,17 @@ export default function LoginPage() {
                 const { access_token } = await login(formData.email, formData.password);
                 console.log("Login successful", access_token);
                 localStorage.setItem('token', access_token);
+
+                // Save credentials if remember me is checked
+                if (rememberMe) {
+                    localStorage.setItem('rememberedEmail', formData.email);
+                    localStorage.setItem('rememberedPassword', formData.password);
+                } else {
+                    // Clear saved credentials if remember me is unchecked
+                    localStorage.removeItem('rememberedEmail');
+                    localStorage.removeItem('rememberedPassword');
+                }
+
                 router.push('/');
             } else {
                 console.log("Registering user...");
@@ -127,6 +153,31 @@ export default function LoginPage() {
                                 </button>
                             </div>
                         </div>
+
+                        {isLogin && (
+                            <div className="flex items-center justify-between">
+                                <label className="flex items-center cursor-pointer group">
+                                    <div className="relative">
+                                        <input
+                                            type="checkbox"
+                                            checked={rememberMe}
+                                            onChange={(e) => setRememberMe(e.target.checked)}
+                                            className="sr-only peer"
+                                        />
+                                        <div className="w-5 h-5 border-2 border-slate-300 dark:border-slate-600 rounded peer-checked:bg-blue-600 peer-checked:border-blue-600 transition-all flex items-center justify-center">
+                                            {rememberMe && (
+                                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <span className="ml-2 text-sm text-slate-600 dark:text-blue-200/70 group-hover:text-slate-900 dark:group-hover:text-blue-200 transition-colors">
+                                        Remember me
+                                    </span>
+                                </label>
+                            </div>
+                        )}
 
                         {error && (
                             <div className="p-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-sm">

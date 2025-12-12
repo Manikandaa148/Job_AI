@@ -40,6 +40,9 @@ class UserUpdate(BaseModel):
     experience_level: Optional[str] = None
     skills: Optional[List[str]] = None
     avatar: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    github_url: Optional[str] = None
+    portfolio_url: Optional[str] = None
     education: Optional[List[dict]] = None
     experience: Optional[List[dict]] = None
     job_preferences: Optional[List[str]] = None
@@ -53,6 +56,9 @@ class UserResponse(UserBase):
     experience_level: Optional[str] = None
     skills: Optional[List[str]] = []
     avatar: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    github_url: Optional[str] = None
+    portfolio_url: Optional[str] = None
     education: Optional[List[dict]] = []
     experience: Optional[List[dict]] = []
     job_preferences: Optional[List[str]] = []

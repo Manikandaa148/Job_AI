@@ -5,6 +5,7 @@ import { getProfile, updateProfile } from '@/lib/api';
 import { ImageCropper } from './ImageCropper';
 import { DonutChart } from './DonutChart';
 import { RefreshCw } from 'lucide-react';
+import { SuccessPopup } from './SuccessPopup';
 
 interface ProfileModalProps {
     isOpen: boolean;
@@ -140,6 +141,10 @@ interface Project {
     technologies: string[];
     description: string;
     link: string;
+    isEditing?: boolean;
+    logo?: string;
+    startDate?: string;
+    endDate?: string;
 }
 
 export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
@@ -205,7 +210,10 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     education: educationWithIds,
                     workExperience: experienceWithIds,
                     jobPreferences: user.job_preferences || [],
-                    projects: projectsWithIds
+                    projects: projectsWithIds,
+                    linkedinUrl: user.linkedin_url || '',
+                    githubUrl: user.github_url || '',
+                    portfolioUrl: user.portfolio_url || ''
                 }));
             } catch (e) {
                 console.error("Failed to fetch profile", e);
@@ -238,6 +246,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     const [atsScore, setAtsScore] = useState(0);
     const [analysisBreakdown, setAnalysisBreakdown] = useState<string[]>([]);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [showSuccess, setShowSuccess] = useState(false);
 
     // Initial load only
     useEffect(() => {
@@ -450,7 +459,10 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 education: formData.education.map(({ isEditing, ...rest }) => rest), // Remove UI flags
                 experience: formData.workExperience.map(({ isEditing, ...rest }) => rest), // Remove UI flags
                 job_preferences: formData.jobPreferences,
-                projects: formData.projects
+                projects: formData.projects,
+                linkedin_url: formData.linkedinUrl,
+                github_url: formData.githubUrl,
+                portfolio_url: formData.portfolioUrl
             };
 
             console.log('Update data:', updateData);
@@ -459,8 +471,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
             // Also save to local storage for offline/fallback
             saveToStorage(formData);
-            alert("Profile updated successfully!");
-            onClose();
+            setShowSuccess(true);
         } catch (e: any) {
             console.error("Failed to update profile", e);
             const errorMessage = e?.response?.data?.detail || e?.message || "Unknown error occurred";
@@ -477,6 +488,13 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     onCancel={handleCropCancel}
                 />
             )}
+            <SuccessPopup
+                isVisible={showSuccess}
+                onClose={() => {
+                    setShowSuccess(false);
+                    onClose();
+                }}
+            />
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="sticky top-0 z-10 flex items-center justify-between p-6 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-white/10">
                     <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Complete Your Profile</h2>
@@ -1018,82 +1036,166 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                             <button
                                 type="button"
                                 onClick={addProject}
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                                className="text-xs flex items-center gap-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-300 px-3 py-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors border border-blue-200 dark:border-blue-500/20"
                             >
-                                <Plus className="w-4 h-4" /> Add Project
+                                <Plus className="w-3 h-3" /> Add Project
                             </button>
                         </div>
+
                         <div className="space-y-4">
                             {formData.projects.map((project) => (
-                                <div key={project.id} className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-6 space-y-4">
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex-1">
-                                            <input
-                                                type="text"
-                                                value={project.name}
-                                                onChange={(e) => updateProject(project.id, 'name', e.target.value)}
-                                                className="w-full text-lg font-semibold bg-transparent border-none outline-none text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-blue-200/30"
-                                                placeholder="Project Name"
-                                            />
-                                        </div>
+                                <div key={project.id} className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl space-y-4 relative group">
+                                    <div className="absolute top-4 right-4 flex gap-2 z-10">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const updatedProjects = formData.projects.map(p =>
+                                                    p.id === project.id ? { ...p, isEditing: !p.isEditing } : p
+                                                );
+                                                setFormData(prev => ({ ...prev, projects: updatedProjects }));
+                                            }}
+                                            className="text-slate-400 dark:text-blue-200/40 hover:text-blue-500 transition-colors"
+                                            title={project.isEditing ? "Save" : "Edit"}
+                                        >
+                                            {project.isEditing ? <Save className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
+                                        </button>
                                         <button
                                             type="button"
                                             onClick={() => removeProject(project.id)}
-                                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                                            className="text-red-400/60 hover:text-red-500 transition-colors"
+                                            title="Delete"
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-medium text-slate-700 dark:text-blue-200/60 mb-1">Your Role</label>
-                                            <input
-                                                type="text"
-                                                value={project.role}
-                                                onChange={(e) => updateProject(project.id, 'role', e.target.value)}
-                                                className="w-full bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-blue-500/50 outline-none"
-                                                placeholder="e.g. Lead Developer, Team Member"
-                                            />
+
+                                    <div className="flex gap-4">
+                                        {/* Project Icon/Logo */}
+                                        <div className="w-16 h-16 flex-shrink-0 rounded-lg bg-white dark:bg-black/30 border border-slate-200 dark:border-white/10 flex items-center justify-center overflow-hidden">
+                                            {project.logo ? (
+                                                <img src={project.logo} alt="Project" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <Briefcase className="w-6 h-6 text-slate-300 dark:text-blue-200/20" />
+                                            )}
                                         </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-slate-700 dark:text-blue-200/60 mb-1">Duration</label>
-                                            <input
-                                                type="text"
-                                                value={project.duration}
-                                                onChange={(e) => updateProject(project.id, 'duration', e.target.value)}
-                                                className="w-full bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-blue-500/50 outline-none"
-                                                placeholder="e.g. Jan 2024 - Mar 2024, 3 months"
-                                            />
-                                        </div>
-                                        <div className="md:col-span-2">
-                                            <label className="block text-xs font-medium text-slate-700 dark:text-blue-200/60 mb-1">Technologies Used</label>
-                                            <TagInput
-                                                label=""
-                                                tags={project.technologies}
-                                                onAddTag={(tag) => updateProject(project.id, 'technologies', [...project.technologies, tag])}
-                                                onRemoveTag={(tag) => updateProject(project.id, 'technologies', project.technologies.filter(t => t !== tag))}
-                                                suggestions={[]}
-                                                placeholder="Add technologies (e.g., React, Node.js, MongoDB)"
-                                            />
-                                        </div>
-                                        <div className="md:col-span-2">
-                                            <label className="block text-xs font-medium text-slate-700 dark:text-blue-200/60 mb-1">Description</label>
-                                            <textarea
-                                                value={project.description}
-                                                onChange={(e) => updateProject(project.id, 'description', e.target.value)}
-                                                className="w-full bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-blue-500/50 outline-none resize-none h-20"
-                                                placeholder="Describe the project, your contributions, and key achievements..."
-                                            />
-                                        </div>
-                                        <div className="md:col-span-2">
-                                            <label className="block text-xs font-medium text-slate-700 dark:text-blue-200/60 mb-1">Project Link (GitHub, Demo, etc.)</label>
-                                            <input
-                                                type="url"
-                                                value={project.link}
-                                                onChange={(e) => updateProject(project.id, 'link', e.target.value)}
-                                                className="w-full bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-blue-500/50 outline-none"
-                                                placeholder="https://github.com/username/project or https://demo.com"
-                                            />
+
+                                        <div className="flex-1">
+                                            {project.isEditing ? (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-slate-700 dark:text-blue-200/60 mb-1">Project Name</label>
+                                                        <input
+                                                            type="text"
+                                                            value={project.name}
+                                                            onChange={(e) => updateProject(project.id, 'name', e.target.value)}
+                                                            className="w-full bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-blue-500/50 outline-none"
+                                                            placeholder="Project Name"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-slate-700 dark:text-blue-200/60 mb-1">Your Role</label>
+                                                        <input
+                                                            type="text"
+                                                            value={project.role}
+                                                            onChange={(e) => updateProject(project.id, 'role', e.target.value)}
+                                                            className="w-full bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-blue-500/50 outline-none"
+                                                            placeholder="e.g. Lead Developer, Team Member"
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-slate-700 dark:text-blue-200/60 mb-1">Start Date</label>
+                                                            <input
+                                                                type="date"
+                                                                value={project.startDate || ''}
+                                                                onChange={(e) => updateProject(project.id, 'startDate', e.target.value)}
+                                                                className="w-full bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-blue-500/50 outline-none"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-xs font-medium text-slate-700 dark:text-blue-200/60 mb-1">End Date</label>
+                                                            <input
+                                                                type="date"
+                                                                value={project.endDate || ''}
+                                                                onChange={(e) => updateProject(project.id, 'endDate', e.target.value)}
+                                                                className="w-full bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-blue-500/50 outline-none"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-slate-700 dark:text-blue-200/60 mb-1">Project Link</label>
+                                                        <input
+                                                            type="url"
+                                                            value={project.link}
+                                                            onChange={(e) => updateProject(project.id, 'link', e.target.value)}
+                                                            className="w-full bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-blue-500/50 outline-none"
+                                                            placeholder="https://github.com/username/project"
+                                                        />
+                                                    </div>
+                                                    <div className="md:col-span-2">
+                                                        <label className="block text-xs font-medium text-slate-700 dark:text-blue-200/60 mb-1">Technologies Used</label>
+                                                        <TagInput
+                                                            label=""
+                                                            tags={project.technologies}
+                                                            onAddTag={(tag) => updateProject(project.id, 'technologies', [...project.technologies, tag])}
+                                                            onRemoveTag={(tag) => updateProject(project.id, 'technologies', project.technologies.filter(t => t !== tag))}
+                                                            suggestions={[]}
+                                                            placeholder="Add technologies (e.g., React, Node.js)"
+                                                        />
+                                                    </div>
+                                                    <div className="md:col-span-2">
+                                                        <label className="block text-xs font-medium text-slate-700 dark:text-blue-200/60 mb-1">Description</label>
+                                                        <textarea
+                                                            value={project.description}
+                                                            onChange={(e) => updateProject(project.id, 'description', e.target.value)}
+                                                            className="w-full bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-blue-500/50 outline-none resize-none h-20"
+                                                            placeholder="Describe the project, your contributions, and key achievements..."
+                                                        />
+                                                    </div>
+                                                    <div className="md:col-span-2 flex justify-end">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const updatedProjects = formData.projects.map(p =>
+                                                                    p.id === project.id ? { ...p, isEditing: false } : p
+                                                                );
+                                                                setFormData(prev => ({ ...prev, projects: updatedProjects }));
+                                                            }}
+                                                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
+                                                        >
+                                                            <Save className="w-4 h-4" /> Save Project
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-1">
+                                                    <h4 className="text-lg font-semibold text-slate-900 dark:text-white">{project.name || 'Project Name'}</h4>
+                                                    <p className="text-sm font-medium text-blue-600 dark:text-blue-400">{project.role || 'Role'}</p>
+                                                    <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-blue-200/60">
+                                                        <span>{project.startDate || 'Start'} - {project.endDate || 'Present'}</span>
+                                                        {project.link && (
+                                                            <>
+                                                                <span>•</span>
+                                                                <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                                                                    View Project
+                                                                </a>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    {project.technologies.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1 mt-2">
+                                                            {project.technologies.map((tech, idx) => (
+                                                                <span key={idx} className="px-2 py-0.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-300 text-xs rounded">
+                                                                    {tech}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    <p className="text-sm text-slate-600 dark:text-blue-200/80 mt-2 whitespace-pre-line">
+                                                        {project.description}
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

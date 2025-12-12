@@ -36,9 +36,15 @@ export function Header() {
             try {
                 const userData = await getProfile();
                 setUser(userData);
-            } catch (e) {
+            } catch (e: any) {
                 console.error("Failed to fetch user for header", e);
-                // If no user is logged in, automatically create a guest account
+
+                // If 401, force token cleanup to ensure autoLoginGuest works
+                if (e.response?.status === 401) {
+                    localStorage.removeItem('token');
+                }
+
+                // If no user is logged in (or we just cleared invalid token), automatically create a guest account
                 await autoLoginGuest();
             }
         };

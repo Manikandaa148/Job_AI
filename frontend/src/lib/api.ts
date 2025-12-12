@@ -54,6 +54,9 @@ export interface User {
     experience?: any[];
     job_preferences?: string[];
     projects?: any[];
+    linkedin_url?: string;
+    github_url?: string;
+    portfolio_url?: string;
 }
 
 export const searchJobs = async (
@@ -142,3 +145,35 @@ export const analyzeResumeFile = async (file: File) => {
         throw error;
     }
 };
+
+// Auto-Apply API Functions
+export interface AutoApplyValidation {
+    can_auto_apply: boolean;
+    missing_fields: string[];
+    prompts: Array<{
+        field: string;
+        question: string;
+        type: string;
+    }>;
+}
+
+export const validateAutoApply = async (): Promise<AutoApplyValidation> => {
+    const response = await axios.get(`${API_URL}/auto-apply/validate`);
+    return response.data;
+};
+
+export const executeAutoApply = async (jobIds: string[]): Promise<any> => {
+    const response = await axios.post(`${API_URL}/auto-apply/execute`, {
+        job_ids: jobIds
+    });
+    return response.data;
+};
+
+export const sendChatMessage = async (message: string, field?: string): Promise<any> => {
+    const response = await axios.post(`${API_URL}/chatbot/message`, {
+        message,
+        field
+    });
+    return response.data;
+};
+
