@@ -13,7 +13,7 @@ def search_jobs_google(query: str, location: str = "", start: int = 1, experienc
     if not GOOGLE_API_KEY or not SEARCH_ENGINE_ID:
         print("Warning: Google API Key or Search Engine ID not found.")
         print("Returning mock jobs as fallback...")
-        return _get_mock_jobs(query, location, experience_level, platforms)
+        return _get_mock_jobs(query, location, start, experience_level, platforms)
 
     # Build the search query
     search_terms = [query, "jobs"]
@@ -113,19 +113,19 @@ def search_jobs_google(query: str, location: str = "", start: int = 1, experienc
         
         if not jobs:
             print("DEBUG: No jobs found from API. Switching to mock data.")
-            return _get_mock_jobs(query, location, experience_level, platforms)
+            return _get_mock_jobs(query, location, start, experience_level, platforms)
             
         return jobs
 
     except Exception as e:
         print(f"Error searching Google: {e}")
         # Fallback to mock data on error
-        return _get_mock_jobs(query, location, experience_level, platforms)
+        return _get_mock_jobs(query, location, start, experience_level, platforms)
 
-def _get_mock_jobs(query: str = "", location: str = "", experience_level: List[str] = None, platforms: List[str] = None) -> List[Job]:
-    print(f"DEBUG: Returning mock jobs for query='{query}', location='{location}'")
+def _get_mock_jobs(query: str = "", location: str = "", start: int = 1, experience_level: List[str] = None, platforms: List[str] = None) -> List[Job]:
+    print(f"DEBUG: Returning mock jobs for query='{query}', location='{location}', start={start}")
     
-    # Comprehensive mock job listings
+    # Comprehensive mock job listings (15 jobs for pagination)
     all_mock_jobs = [
         Job(
             title="Senior Software Engineer",
@@ -191,6 +191,62 @@ def _get_mock_jobs(query: str = "", location: str = "", experience_level: List[s
             url="https://www.linkedin.com/jobs/search/?keywords=ui%20ux%20designer",
             source="LinkedIn"
         ),
+        Job(
+            title="Backend Developer",
+            company="API Masters",
+            location=location or "Chicago, IL",
+            description=f"Build scalable REST APIs and microservices. {query or 'Backend development'} role with Node.js and Python.",
+            url="https://www.indeed.com/jobs?q=backend+developer",
+            source="Indeed"
+        ),
+        Job(
+            title="Data Analyst",
+            company="Analytics Pro",
+            location=location or "Denver, CO",
+            description=f"Transform data into actionable insights. {query or 'Data analysis'} position with SQL and Tableau experience.",
+            url="https://www.glassdoor.com/Job/jobs.htm?sc.keyword=data%20analyst",
+            source="Glassdoor"
+        ),
+        Job(
+            title="Cloud Architect",
+            company="CloudTech Inc",
+            location=location or "Dallas, TX",
+            description=f"Design and implement cloud solutions on AWS/Azure. {query or 'Cloud architecture'} role for experienced professionals.",
+            url="https://www.linkedin.com/jobs/search/?keywords=cloud%20architect",
+            source="LinkedIn"
+        ),
+        Job(
+            title="QA Engineer",
+            company="Quality First",
+            location=location or "Portland, OR",
+            description=f"Ensure software quality through automated testing. {query or 'QA testing'} position with Selenium experience.",
+            url="https://www.indeed.com/jobs?q=qa+engineer",
+            source="Indeed"
+        ),
+        Job(
+            title="Mobile Developer",
+            company="AppWorks",
+            location=location or "Miami, FL",
+            description=f"Build native mobile apps for iOS and Android. {query or 'Mobile development'} role with React Native or Flutter.",
+            url="https://www.naukri.com/mobile-developer-jobs",
+            source="Naukri"
+        ),
+        Job(
+            title="Cybersecurity Analyst",
+            company="SecureNet",
+            location=location or "Washington, DC",
+            description=f"Protect systems from cyber threats and vulnerabilities. {query or 'Cybersecurity'} position with CISSP preferred.",
+            url="https://www.glassdoor.com/Job/jobs.htm?sc.keyword=cybersecurity%20analyst",
+            source="Glassdoor"
+        ),
+        Job(
+            title="Business Analyst",
+            company="Enterprise Solutions",
+            location=location or "Atlanta, GA",
+            description=f"Bridge the gap between business and technology. {query or 'Business analysis'} role with Agile experience.",
+            url="https://www.linkedin.com/jobs/search/?keywords=business%20analyst",
+            source="LinkedIn"
+        ),
     ]
 
     # Always return at least some jobs
@@ -211,5 +267,12 @@ def _get_mock_jobs(query: str = "", location: str = "", experience_level: List[s
         if len(exp_filtered) >= 2:  # Only apply if we get at least 2 results
             filtered_jobs = exp_filtered
 
-    print(f"DEBUG: Returning {len(filtered_jobs)} mock jobs")
-    return filtered_jobs
+    # Implement pagination: return 10 jobs per page
+    page_size = 10
+    start_index = start - 1  # start is 1-indexed from API
+    end_index = start_index + page_size
+    
+    paginated_jobs = filtered_jobs[start_index:end_index]
+    
+    print(f"DEBUG: Total filtered jobs: {len(filtered_jobs)}, Returning page {start//10 + 1}: {len(paginated_jobs)} jobs")
+    return paginated_jobs
