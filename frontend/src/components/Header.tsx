@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { User, Bell, Menu, Sun, Moon, FileText } from 'lucide-react';
+import { User, Bell, Menu, Sun, Moon, FileText, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { ProfileModal } from './ProfileModal';
 import { ResumeBuilderModal } from './ResumeBuilderModal';
@@ -33,19 +33,28 @@ export function Header() {
 
     useEffect(() => {
         const fetchUser = async () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                // No token, redirect to login
+                if (window.location.pathname !== '/login') {
+                    window.location.href = '/login';
+                }
+                return;
+            }
+
             try {
                 const userData = await getProfile();
                 setUser(userData);
             } catch (e: any) {
                 console.error("Failed to fetch user for header", e);
 
-                // If 401, force token cleanup to ensure autoLoginGuest works
+                // If 401, token is invalid - clear it and redirect to login
                 if (e.response?.status === 401) {
                     localStorage.removeItem('token');
+                    if (window.location.pathname !== '/login') {
+                        window.location.href = '/login';
+                    }
                 }
-
-                // If no user is logged in (or we just cleared invalid token), automatically create a guest account
-                await autoLoginGuest();
             }
         };
         fetchUser();
@@ -56,40 +65,10 @@ export function Header() {
         return () => window.removeEventListener('profileUpdated', handleProfileUpdate);
     }, []);
 
-    const autoLoginGuest = async () => {
-        // Check if we already have a token
-        const existingToken = localStorage.getItem('token');
-        if (existingToken) return;
-
-        try {
-            // Try to login with default guest credentials
-            const { login, register } = await import('@/lib/api');
-
-            try {
-                const loginResult = await login('guest@jobai.com', 'guest123');
-                localStorage.setItem('token', loginResult.access_token);
-                console.log('✓ Guest user logged in');
-
-                // Fetch user data after login
-                const userData = await getProfile();
-                setUser(userData);
-            } catch (loginError) {
-                // If login fails, register a new guest account
-                console.log('Guest account not found, creating new one...');
-                await register('guest@jobai.com', 'guest123', 'Guest User');
-
-                // Now login
-                const loginResult = await login('guest@jobai.com', 'guest123');
-                localStorage.setItem('token', loginResult.access_token);
-                console.log('✓ New guest user created and logged in');
-
-                // Fetch user data after login
-                const userData = await getProfile();
-                setUser(userData);
-            }
-        } catch (error) {
-            console.error('Failed to auto-login guest:', error);
-        }
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        setUser(null);
+        window.location.href = '/login';
     };
 
     const toggleTheme = () => {
@@ -144,6 +123,14 @@ export function Header() {
                                 title="Resume Builder"
                             >
                                 <FileText className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            </button>
+
+                            <button
+                                onClick={handleLogout}
+                                className="p-2 text-slate-500 dark:text-blue-200/60 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-full transition-all group"
+                                title="Logout"
+                            >
+                                <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
                             </button>
 
                             <button
