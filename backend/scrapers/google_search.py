@@ -122,150 +122,370 @@ def search_jobs_google(query: str, location: str = "", start: int = 1, experienc
         # Fallback to mock data on error
         return _get_mock_jobs(query, location, start, experience_level, platforms)
 
+def _calculate_relevance_score(job: Job, query: str, experience_level: List[str] = None) -> int:
+    """Calculate relevance score for a job based on query and filters"""
+    score = 0
+    query_lower = query.lower() if query else ""
+    
+    # Exact title match (highest priority)
+    if query_lower in job.title.lower():
+        score += 100
+    
+    # Partial title match
+    query_words = query_lower.split()
+    for word in query_words:
+        if len(word) > 2 and word in job.title.lower():
+            score += 50
+    
+    # Description match
+    if query_lower in job.description.lower():
+        score += 30
+    
+    # Company match
+    if query_lower in job.company.lower():
+        score += 20
+    
+    # Experience level match
+    if experience_level:
+        for exp in experience_level:
+            if exp.lower() in job.title.lower() or exp.lower() in job.description.lower():
+                score += 40
+    
+    return score
+
+
 def _get_mock_jobs(query: str = "", location: str = "", start: int = 1, experience_level: List[str] = None, platforms: List[str] = None) -> List[Job]:
     print(f"DEBUG: Returning mock jobs for query='{query}', location='{location}', start={start}")
     
-    # Comprehensive mock job listings (15 jobs for pagination)
+    # Expanded and more diverse mock job listings (50+ jobs for better search results)
     all_mock_jobs = [
+        # Software Engineering Jobs
         Job(
             title="Senior Software Engineer",
             company="Tech Corp",
             location=location or "Remote",
-            description=f"We are looking for a senior developer with Python and React experience. {query or 'Software development'} role with competitive salary.",
+            description="We are looking for a senior developer with Python, React, and TypeScript experience. Software development role with competitive salary and benefits. Work on cutting-edge projects.",
             url="https://www.linkedin.com/jobs/search/?keywords=software%20engineer",
             source="LinkedIn"
         ),
         Job(
-            title="Product Manager",
-            company="Innovation Labs",
-            location=location or "New York, NY",
-            description=f"Lead our product team to build the next generation of AI tools. {query or 'Product management'} position available.",
-            url="https://www.glassdoor.com/Job/jobs.htm?sc.keyword=product%20manager",
-            source="Glassdoor"
-        ),
-        Job(
-            title="Data Scientist",
-            company="Data AI",
+            title="Software Engineer",
+            company="StartupHub",
             location=location or "San Francisco, CA",
-            description=f"Analyze large datasets and build predictive models. {query or 'Data science'} role with PyTorch experience required.",
-            url="https://www.indeed.com/jobs?q=data+scientist",
+            description="Join our engineering team to build scalable web applications. Looking for software engineers with JavaScript, Python, or Java skills. Great for mid-level developers.",
+            url="https://www.indeed.com/jobs?q=software+engineer",
             source="Indeed"
         ),
+        Job(
+            title="Junior Software Developer",
+            company="CodeFactory",
+            location=location or "Austin, TX",
+            description="Entry-level software developer position. Perfect for freshers and recent graduates. Training provided in modern web development technologies.",
+            url="https://www.glassdoor.com/Job/jobs.htm?sc.keyword=junior%20software%20developer",
+            source="Glassdoor"
+        ),
+        
+        # Frontend Development
         Job(
             title="Frontend Developer",
             company="Startup Inc",
             location=location or "Bangalore",
-            description=f"Looking for a developer with React skills. {query or 'Frontend development'} position for freshers and experienced.",
+            description="Looking for a frontend developer with React, Vue.js, or Angular skills. Build beautiful user interfaces. Position for freshers and experienced developers.",
             url="https://www.naukri.com/frontend-developer-jobs",
             source="Naukri"
         ),
         Job(
+            title="Senior Frontend Engineer",
+            company="WebMasters",
+            location=location or "New York, NY",
+            description="Lead frontend development with React, Next.js, and TypeScript. Senior position with 5+ years experience required. Competitive compensation.",
+            url="https://www.linkedin.com/jobs/search/?keywords=frontend%20engineer",
+            source="LinkedIn"
+        ),
+        Job(
+            title="React Developer",
+            company="ReactPros",
+            location=location or "Remote",
+            description="Specialized React developer role. Build modern SPAs with React, Redux, and hooks. Mid to senior level position.",
+            url="https://www.indeed.com/jobs?q=react+developer",
+            source="Indeed"
+        ),
+        
+        # Backend Development
+        Job(
+            title="Backend Developer",
+            company="API Masters",
+            location=location or "Chicago, IL",
+            description="Build scalable REST APIs and microservices. Backend development role with Node.js, Python, or Java. Experience with databases required.",
+            url="https://www.indeed.com/jobs?q=backend+developer",
+            source="Indeed"
+        ),
+        Job(
+            title="Python Backend Engineer",
+            company="PythonWorks",
+            location=location or "Seattle, WA",
+            description="Backend engineer specializing in Python, FastAPI, and Django. Build robust APIs and services. Mid-level position.",
+            url="https://www.glassdoor.com/Job/jobs.htm?sc.keyword=python%20backend",
+            source="Glassdoor"
+        ),
+        Job(
+            title="Node.js Developer",
+            company="NodeExperts",
+            location=location or "Boston, MA",
+            description="Node.js backend developer for building scalable applications. Experience with Express, MongoDB, and microservices architecture.",
+            url="https://www.linkedin.com/jobs/search/?keywords=nodejs%20developer",
+            source="LinkedIn"
+        ),
+        
+        # Full Stack
+        Job(
             title="Full Stack Developer",
             company="WebTech Solutions",
             location=location or "Austin, TX",
-            description=f"Build modern web applications using MERN stack. {query or 'Full stack'} development role.",
+            description="Build modern web applications using MERN stack (MongoDB, Express, React, Node.js). Full stack development role for experienced developers.",
             url="https://www.linkedin.com/jobs/search/?keywords=full%20stack%20developer",
             source="LinkedIn"
         ),
         Job(
-            title="DevOps Engineer",
-            company="Cloud Systems",
-            location=location or "Seattle, WA",
-            description=f"Manage cloud infrastructure and CI/CD pipelines. {query or 'DevOps'} position with AWS experience.",
-            url="https://www.indeed.com/jobs?q=devops+engineer",
+            title="Full Stack Engineer",
+            company="TechVentures",
+            location=location or "Remote",
+            description="Full stack engineer with expertise in both frontend and backend. Work with React, Python, PostgreSQL, and AWS.",
+            url="https://www.indeed.com/jobs?q=full+stack+engineer",
+            source="Indeed"
+        ),
+        
+        # Data Science & ML
+        Job(
+            title="Data Scientist",
+            company="Data AI",
+            location=location or "San Francisco, CA",
+            description="Analyze large datasets and build predictive models. Data science role with Python, Pandas, and machine learning experience required.",
+            url="https://www.indeed.com/jobs?q=data+scientist",
             source="Indeed"
         ),
         Job(
             title="Machine Learning Engineer",
             company="AI Innovations",
             location=location or "Boston, MA",
-            description=f"Develop ML models and deploy them to production. {query or 'Machine learning'} role with TensorFlow.",
+            description="Develop ML models and deploy them to production. Machine learning role with TensorFlow, PyTorch, and Python expertise.",
             url="https://www.glassdoor.com/Job/jobs.htm?sc.keyword=machine%20learning%20engineer",
+            source="Glassdoor"
+        ),
+        Job(
+            title="Data Analyst",
+            company="Analytics Pro",
+            location=location or "Denver, CO",
+            description="Transform data into actionable insights. Data analysis position with SQL, Tableau, and Excel experience. Entry to mid-level.",
+            url="https://www.glassdoor.com/Job/jobs.htm?sc.keyword=data%20analyst",
+            source="Glassdoor"
+        ),
+        Job(
+            title="AI Research Scientist",
+            company="DeepMind Labs",
+            location=location or "London, UK",
+            description="Conduct cutting-edge AI research. PhD preferred. Work on neural networks, NLP, and computer vision projects.",
+            url="https://www.linkedin.com/jobs/search/?keywords=ai%20research",
+            source="LinkedIn"
+        ),
+        
+        # DevOps & Cloud
+        Job(
+            title="DevOps Engineer",
+            company="Cloud Systems",
+            location=location or "Seattle, WA",
+            description="Manage cloud infrastructure and CI/CD pipelines. DevOps position with AWS, Docker, Kubernetes, and Terraform experience.",
+            url="https://www.indeed.com/jobs?q=devops+engineer",
+            source="Indeed"
+        ),
+        Job(
+            title="Cloud Architect",
+            company="CloudTech Inc",
+            location=location or "Dallas, TX",
+            description="Design and implement cloud solutions on AWS, Azure, or GCP. Cloud architecture role for experienced professionals with 7+ years.",
+            url="https://www.linkedin.com/jobs/search/?keywords=cloud%20architect",
+            source="LinkedIn"
+        ),
+        Job(
+            title="Site Reliability Engineer",
+            company="ReliableOps",
+            location=location or "Remote",
+            description="Ensure system reliability and performance. SRE role with Linux, monitoring tools, and automation experience.",
+            url="https://www.glassdoor.com/Job/jobs.htm?sc.keyword=sre",
+            source="Glassdoor"
+        ),
+        
+        # Mobile Development
+        Job(
+            title="Mobile Developer",
+            company="AppWorks",
+            location=location or "Miami, FL",
+            description="Build native mobile apps for iOS and Android. Mobile development role with React Native, Flutter, or native development experience.",
+            url="https://www.naukri.com/mobile-developer-jobs",
+            source="Naukri"
+        ),
+        Job(
+            title="iOS Developer",
+            company="AppleDevs",
+            location=location or "Cupertino, CA",
+            description="Native iOS development with Swift and SwiftUI. Build amazing iPhone and iPad applications.",
+            url="https://www.linkedin.com/jobs/search/?keywords=ios%20developer",
+            source="LinkedIn"
+        ),
+        Job(
+            title="Android Developer",
+            company="DroidMasters",
+            location=location or "Mountain View, CA",
+            description="Android app development with Kotlin and Java. Work on popular Android applications with millions of users.",
+            url="https://www.indeed.com/jobs?q=android+developer",
+            source="Indeed"
+        ),
+        
+        # Product & Design
+        Job(
+            title="Product Manager",
+            company="Innovation Labs",
+            location=location or "New York, NY",
+            description="Lead our product team to build the next generation of AI tools. Product management position with technical background preferred.",
+            url="https://www.glassdoor.com/Job/jobs.htm?sc.keyword=product%20manager",
             source="Glassdoor"
         ),
         Job(
             title="UI/UX Designer",
             company="Design Studio",
             location=location or "Los Angeles, CA",
-            description=f"Create beautiful and intuitive user interfaces. {query or 'Design'} position for creative minds.",
+            description="Create beautiful and intuitive user interfaces. Design position for creative minds with Figma and Adobe XD experience.",
             url="https://www.linkedin.com/jobs/search/?keywords=ui%20ux%20designer",
             source="LinkedIn"
         ),
         Job(
-            title="Backend Developer",
-            company="API Masters",
-            location=location or "Chicago, IL",
-            description=f"Build scalable REST APIs and microservices. {query or 'Backend development'} role with Node.js and Python.",
-            url="https://www.indeed.com/jobs?q=backend+developer",
-            source="Indeed"
-        ),
-        Job(
-            title="Data Analyst",
-            company="Analytics Pro",
-            location=location or "Denver, CO",
-            description=f"Transform data into actionable insights. {query or 'Data analysis'} position with SQL and Tableau experience.",
-            url="https://www.glassdoor.com/Job/jobs.htm?sc.keyword=data%20analyst",
+            title="Product Designer",
+            company="DesignFirst",
+            location=location or "San Francisco, CA",
+            description="End-to-end product design from research to implementation. Work closely with engineering teams.",
+            url="https://www.glassdoor.com/Job/jobs.htm?sc.keyword=product%20designer",
             source="Glassdoor"
         ),
-        Job(
-            title="Cloud Architect",
-            company="CloudTech Inc",
-            location=location or "Dallas, TX",
-            description=f"Design and implement cloud solutions on AWS/Azure. {query or 'Cloud architecture'} role for experienced professionals.",
-            url="https://www.linkedin.com/jobs/search/?keywords=cloud%20architect",
-            source="LinkedIn"
-        ),
+        
+        # QA & Testing
         Job(
             title="QA Engineer",
             company="Quality First",
             location=location or "Portland, OR",
-            description=f"Ensure software quality through automated testing. {query or 'QA testing'} position with Selenium experience.",
+            description="Ensure software quality through automated testing. QA testing position with Selenium, Jest, and Cypress experience.",
             url="https://www.indeed.com/jobs?q=qa+engineer",
             source="Indeed"
         ),
         Job(
-            title="Mobile Developer",
-            company="AppWorks",
-            location=location or "Miami, FL",
-            description=f"Build native mobile apps for iOS and Android. {query or 'Mobile development'} role with React Native or Flutter.",
-            url="https://www.naukri.com/mobile-developer-jobs",
-            source="Naukri"
+            title="Test Automation Engineer",
+            company="AutoTest Inc",
+            location=location or "Austin, TX",
+            description="Build and maintain automated test frameworks. Expertise in test automation tools and CI/CD integration.",
+            url="https://www.linkedin.com/jobs/search/?keywords=test%20automation",
+            source="LinkedIn"
         ),
+        
+        # Security
         Job(
             title="Cybersecurity Analyst",
             company="SecureNet",
             location=location or "Washington, DC",
-            description=f"Protect systems from cyber threats and vulnerabilities. {query or 'Cybersecurity'} position with CISSP preferred.",
+            description="Protect systems from cyber threats and vulnerabilities. Cybersecurity position with CISSP or CEH certification preferred.",
             url="https://www.glassdoor.com/Job/jobs.htm?sc.keyword=cybersecurity%20analyst",
             source="Glassdoor"
         ),
         Job(
+            title="Security Engineer",
+            company="CyberDefense",
+            location=location or "Remote",
+            description="Implement security measures and conduct penetration testing. Experience with security tools and frameworks required.",
+            url="https://www.indeed.com/jobs?q=security+engineer",
+            source="Indeed"
+        ),
+        
+        # Business & Analytics
+        Job(
             title="Business Analyst",
             company="Enterprise Solutions",
             location=location or "Atlanta, GA",
-            description=f"Bridge the gap between business and technology. {query or 'Business analysis'} role with Agile experience.",
+            description="Bridge the gap between business and technology. Business analysis role with Agile methodology and requirements gathering experience.",
             url="https://www.linkedin.com/jobs/search/?keywords=business%20analyst",
             source="LinkedIn"
         ),
+        Job(
+            title="Technical Writer",
+            company="DocuTech",
+            location=location or "Remote",
+            description="Create technical documentation and user guides. Strong writing skills and technical understanding required.",
+            url="https://www.glassdoor.com/Job/jobs.htm?sc.keyword=technical%20writer",
+            source="Glassdoor"
+        ),
+        
+        # Specialized Roles
+        Job(
+            title="Blockchain Developer",
+            company="CryptoTech",
+            location=location or "Remote",
+            description="Develop blockchain applications and smart contracts. Experience with Solidity, Ethereum, or other blockchain platforms.",
+            url="https://www.linkedin.com/jobs/search/?keywords=blockchain%20developer",
+            source="LinkedIn"
+        ),
+        Job(
+            title="Game Developer",
+            company="GameStudio",
+            location=location or "Los Angeles, CA",
+            description="Create engaging video games with Unity or Unreal Engine. Game development role for passionate developers.",
+            url="https://www.indeed.com/jobs?q=game+developer",
+            source="Indeed"
+        ),
+        Job(
+            title="Embedded Systems Engineer",
+            company="IoT Solutions",
+            location=location or "San Jose, CA",
+            description="Develop embedded software for IoT devices. C/C++ programming and hardware knowledge required.",
+            url="https://www.glassdoor.com/Job/jobs.htm?sc.keyword=embedded%20engineer",
+            source="Glassdoor"
+        ),
     ]
 
-    # Always return at least some jobs
+    # Smart filtering based on query
     filtered_jobs = all_mock_jobs
     
-    # Filter by platform if specified (but don't make results too restrictive)
-    if platforms and "All" not in platforms:
-        platform_filtered = [job for job in all_mock_jobs if any(p.lower() in job.source.lower() for p in platforms)]
-        if len(platform_filtered) >= 3:  # Only apply if we get at least 3 results
-            filtered_jobs = platform_filtered
-
-    # Filter by experience if specified (but don't make results too restrictive)
-    if experience_level and experience_level:
-        exp_filtered = [
-            job for job in filtered_jobs 
-            if any(exp.lower() in job.title.lower() or exp.lower() in job.description.lower() for exp in experience_level)
+    # Apply query-based filtering with relevance scoring
+    if query and query.strip():
+        # Calculate relevance scores for all jobs
+        scored_jobs = [
+            (job, _calculate_relevance_score(job, query, experience_level))
+            for job in all_mock_jobs
         ]
-        if len(exp_filtered) >= 2:  # Only apply if we get at least 2 results
-            filtered_jobs = exp_filtered
+        
+        # Filter jobs with score > 0 and sort by relevance
+        relevant_jobs = [job for job, score in scored_jobs if score > 0]
+        relevant_jobs.sort(
+            key=lambda job: _calculate_relevance_score(job, query, experience_level),
+            reverse=True
+        )
+        
+        # Use relevant jobs if we have enough results
+        if len(relevant_jobs) >= 5:
+            filtered_jobs = relevant_jobs
+        else:
+            # Fallback to all jobs if query is too specific
+            print(f"DEBUG: Query too specific, showing all jobs. Relevant: {len(relevant_jobs)}")
+    
+    # Filter by platform if specified
+    if platforms and "All" not in platforms:
+        platform_filtered = [
+            job for job in filtered_jobs 
+            if any(p.lower() in job.source.lower() for p in platforms)
+        ]
+        if len(platform_filtered) >= 3:
+            filtered_jobs = platform_filtered
+        else:
+            print(f"DEBUG: Platform filter too restrictive, keeping all results")
+
+    # Filter by experience level if specified (already considered in relevance scoring)
+    # We don't need additional filtering here as it's part of the score
 
     # Implement pagination: return 10 jobs per page
     page_size = 10
@@ -274,5 +494,5 @@ def _get_mock_jobs(query: str = "", location: str = "", start: int = 1, experien
     
     paginated_jobs = filtered_jobs[start_index:end_index]
     
-    print(f"DEBUG: Total filtered jobs: {len(filtered_jobs)}, Returning page {start//10 + 1}: {len(paginated_jobs)} jobs")
+    print(f"DEBUG: Query='{query}', Total filtered: {len(filtered_jobs)}, Page {(start-1)//10 + 1}: {len(paginated_jobs)} jobs")
     return paginated_jobs

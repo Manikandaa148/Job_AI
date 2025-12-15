@@ -1,0 +1,35 @@
+{
+    "version": 2,
+    "builds": [
+        {
+            "src": "api/index.py",
+            "use": "@vercel/python",
+            "config": {
+                "maxLambdaSize": "50mb"
+            }
+        },
+        {
+            "src": "frontend/package.json",
+            "use": "@vercel/next"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/api/(.*)",
+            "dest": "/api/index.py"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/frontend/$1"
+        }
+    ],
+    "env": {
+        "DATABASE_URL": "@database_url",
+        "SECRET_KEY": "@secret_key",
+        "GOOGLE_API_KEY": "@google_api_key",
+        "GOOGLE_SEARCH_ENGINE_ID": "@google_search_engine_id"
+    },
+    "regions": [
+        "iad1"
+    ]
+}

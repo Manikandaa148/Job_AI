@@ -56,7 +56,7 @@ function ResumePreview({ templateId, userData }: { templateId: string, userData:
 
                     <div className="font-bold text-slate-800 uppercase tracking-widest mt-4 border-b border-slate-300 pb-0.5 mb-1">Skills</div>
                     <div className="text-slate-600 leading-tight">
-                        {userData.skills?.slice(0, 6).map((s: string) => <div key={s}>• {s}</div>)}
+                        {userData.skills?.slice(0, 8).map((s: string) => <div key={s}>• {s}</div>)}
                     </div>
 
                     <div className="font-bold text-slate-800 uppercase tracking-widest mt-4 border-b border-slate-300 pb-0.5 mb-1">Education</div>
@@ -70,17 +70,24 @@ function ResumePreview({ templateId, userData }: { templateId: string, userData:
 
                     <div className="font-bold text-slate-800 uppercase tracking-widest border-b border-slate-300 pb-0.5 mb-1">Profile</div>
                     <p className="text-slate-600 mb-2 leading-tight">
-                        Experienced professional with a proven track record. Expert in building scalable web applications.
+                        Highly motivated professional with 5+ years of experience in designing and implementing scalable software solutions. Proficient in modern development methodologies with a focus on writing clean, maintainable code. Proven track record of collaborating with cross-functional teams to drive project success and innovation.
                     </p>
 
                     <div className="font-bold text-slate-800 uppercase tracking-widest border-b border-slate-300 pb-0.5 mb-1 mt-2">Experience</div>
                     <div className="font-bold text-slate-700">Senior Role</div>
                     <div className="text-slate-500 italic mb-1">2022 - Present</div>
-                    <div className="text-slate-600 leading-tight mb-2">• Led key initiatives and optimized performance.</div>
+                    <div className="text-slate-600 leading-tight mb-2">
+                        • Led key initiatives and optimized performance.<br />
+                        • Managed team of 5 developers.<br />
+                        • Delivered project 2 weeks ahead of schedule.
+                    </div>
 
                     <div className="font-bold text-slate-800 uppercase tracking-widest border-b border-slate-300 pb-0.5 mb-1 mt-2">Projects</div>
                     <div className="font-bold text-slate-700">AI Resume Builder</div>
-                    <div className="text-slate-600 leading-tight">• Built with React & FastAPI.</div>
+                    <div className="text-slate-600 leading-tight">
+                        • Built with React & FastAPI.<br />
+                        • Implemented real-time PDF generation.
+                    </div>
                 </div>
             </div>
         )
@@ -112,8 +119,8 @@ function ResumePreview({ templateId, userData }: { templateId: string, userData:
 
             {/* Content Sections */}
             <div className={`font-bold mb-1 mt-1 uppercase tracking-wider ${styles.headerColor} ${templateId === 'classic' ? 'border-b ' + styles.lineColor : ''}`}>Summary</div>
-            <p className="text-gray-600 mb-2 leading-relaxed">
-                Dedicated professional with experience in {userData.experience_level || 'technology'}. Passionate about building great products.
+            <p className="text-gray-600 mb-2 leading-relaxed text-justify">
+                Dedicated professional with experience in {userData.experience_level || 'technology'}. Passionate about building great products. Committed to continuous learning and leveraging expertise to contribute effectively to organizational growth while upholding high standards of quality. Strong communicator and team player, ready to take on challenging roles in a dynamic environment.
             </p>
 
             <div className={`font-bold mb-1 mt-2 uppercase tracking-wider ${styles.headerColor} ${templateId === 'classic' ? 'border-b ' + styles.lineColor : ''}`}>Experience</div>
@@ -122,15 +129,19 @@ function ResumePreview({ templateId, userData }: { templateId: string, userData:
                     <span>Current Role</span>
                     <span className="font-normal italic text-gray-400">Present</span>
                 </div>
-                <ul className="list-disc pl-3 mt-0.5 text-gray-600">
-                    <li>Analyze requirements and design solutions.</li>
-                </ul>
+                <div className="pl-3 mt-0.5 text-gray-600">
+                    <div>• Analyze requirements and design solutions.</div>
+                    <div>• Collaborate with stakeholders.</div>
+                </div>
             </div>
 
             <div className={`font-bold mb-1 mt-2 uppercase tracking-wider ${styles.headerColor} ${templateId === 'classic' ? 'border-b ' + styles.lineColor : ''}`}>Projects</div>
             <div className="mb-1">
                 <div className="font-bold">Project Name</div>
-                <div className="text-gray-600">• Description of amazing project.</div>
+                <div className="pl-3 mt-0.5 text-gray-600">
+                    <div>• Description of amazing project.</div>
+                    <div>• Tech Stack: React, Node.js</div>
+                </div>
             </div>
 
             <div className={`font-bold mb-1 mt-2 uppercase tracking-wider ${styles.headerColor} ${templateId === 'classic' ? 'border-b ' + styles.lineColor : ''}`}>Education</div>
@@ -140,8 +151,19 @@ function ResumePreview({ templateId, userData }: { templateId: string, userData:
             </div>
 
             <div className={`font-bold mb-1 mt-2 uppercase tracking-wider ${styles.headerColor} ${templateId === 'classic' ? 'border-b ' + styles.lineColor : ''}`}>Skills</div>
-            <div className="text-gray-600">
-                {userData.skills && userData.skills.length > 0 ? userData.skills.join(', ') : 'Python, React, TypeScript, ...'}
+            <div className="text-gray-600 pl-3">
+                <div className="grid grid-cols-2 gap-x-2">
+                    {userData.skills && userData.skills.length > 0 ? (
+                        userData.skills.slice(0, 8).map((s: string) => <div key={s}>• {s}</div>)
+                    ) : (
+                        <>
+                            <div>• Python</div>
+                            <div>• React</div>
+                            <div>• TypeScript</div>
+                            <div>• FastAPI</div>
+                        </>
+                    )}
+                </div>
             </div>
         </div>
     );

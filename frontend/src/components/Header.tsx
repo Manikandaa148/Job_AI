@@ -89,10 +89,10 @@ export function Header() {
                         <div className="flex-shrink-0">
                             <Link href="/" className="flex items-center gap-2">
                                 <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
-                                    <span className="text-white font-bold text-lg">J</span>
+                                    <span className="text-white font-bold text-lg">S</span>
                                 </div>
                                 <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-400 dark:from-white dark:to-blue-200 bg-clip-text text-transparent">
-                                    Job AI
+                                    SmartJob Aggregator
                                 </span>
                             </Link>
                         </div>

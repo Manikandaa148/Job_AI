@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: job-ai-backend
+    env: python
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: GOOGLE_SEARCH_ENGINE_ID
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: job-ai-db
+          property: connectionString
+    healthCheckPath: /health

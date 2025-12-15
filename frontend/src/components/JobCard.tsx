@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { MapPin, Building2, ExternalLink, Calendar, DollarSign } from 'lucide-react';
 import { Job } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { AutoApplyButton } from './AutoApplyButton';
 
 interface JobCardProps {
     job: Job;
@@ -11,8 +10,6 @@ interface JobCardProps {
 }
 
 export function JobCard({ job, className, onMissingInfo }: JobCardProps) {
-    const [showAutoApply, setShowAutoApply] = useState(true);
-
     return (
         <div className={cn("group relative bg-white dark:bg-white/5 backdrop-blur-sm border border-slate-200 dark:border-white/10 rounded-xl p-6 hover:bg-slate-50 dark:hover:bg-white/10 hover:shadow-xl hover:shadow-blue-900/20 transition-all duration-300 hover:-translate-y-1", className)}>
             <div className="flex justify-between items-start mb-4">
@@ -55,12 +52,6 @@ export function JobCard({ job, className, onMissingInfo }: JobCardProps) {
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3">
-                {showAutoApply && (
-                    <AutoApplyButton
-                        jobId={job.id || job.url}
-                        onMissingInfo={onMissingInfo}
-                    />
-                )}
                 <a
                     href={job.url}
                     target="_blank"
@@ -74,4 +65,3 @@ export function JobCard({ job, className, onMissingInfo }: JobCardProps) {
         </div>
     );
 }
-

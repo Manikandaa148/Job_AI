@@ -11,7 +11,7 @@ import json
 # PDF Generation Imports
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, ListFlowable, ListItem
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 import PyPDF2
@@ -20,7 +20,6 @@ import models
 import schemas
 import auth
 import resume_analyzer
-import auto_apply_agent
 from database import engine, get_db
 from scrapers.google_search import search_jobs_google
 
@@ -114,50 +113,34 @@ def update_user_me(user_update: schemas.UserUpdate, current_user: models.User = 
     
     if user_update.full_name is not None:
         current_user.full_name = user_update.full_name
-        print(f"Updated full_name: {user_update.full_name}")
     if user_update.address is not None:
         current_user.address = user_update.address
-        print(f"Updated address: {user_update.address}")
     if user_update.location is not None:
         current_user.location = user_update.location
-        print(f"Updated location: {user_update.location}")
     if user_update.experience_level is not None:
         current_user.experience_level = user_update.experience_level
-        print(f"Updated experience_level: {user_update.experience_level}")
     if user_update.skills is not None:
         current_user.skills = user_update.skills
-        print(f"Updated skills: {user_update.skills}")
     if user_update.avatar is not None:
         current_user.avatar = user_update.avatar
-        print(f"Updated avatar: {user_update.avatar[:50]}..." if len(user_update.avatar) > 50 else f"Updated avatar: {user_update.avatar}")
     if user_update.education is not None:
         current_user.education = user_update.education
-        print(f"Updated education: {len(user_update.education)} items")
     if user_update.experience is not None:
         current_user.experience = user_update.experience
-        print(f"Updated experience: {len(user_update.experience)} items")
     if user_update.job_preferences is not None:
         current_user.job_preferences = user_update.job_preferences
-        print(f"Updated job_preferences: {user_update.job_preferences}")
     if user_update.projects is not None:
         current_user.projects = user_update.projects
-        print(f"Updated projects: {len(user_update.projects)} items")
     if user_update.linkedin_url is not None:
         current_user.linkedin_url = user_update.linkedin_url
-        print(f"Updated linkedin_url: {user_update.linkedin_url}")
     if user_update.github_url is not None:
         current_user.github_url = user_update.github_url
-        print(f"Updated github_url: {user_update.github_url}")
     if user_update.portfolio_url is not None:
         current_user.portfolio_url = user_update.portfolio_url
-        print(f"Updated portfolio_url: {user_update.portfolio_url}")
         
     db.commit()
     db.refresh(current_user)
     print(f"--- Profile updated successfully ---")
-    print(f"Final education count: {len(current_user.education)}")
-    print(f"Final experience count: {len(current_user.experience)}")
-    print(f"Final projects count: {len(current_user.projects)}")
     return current_user
 
 SKILL_KNOWLEDGE_BASE = {
@@ -249,7 +232,6 @@ async def analyze_resume_file(file: UploadFile = File(...), current_user: models
                 if text:
                     extracted_text += text + "\n"
         else:
-             # Basic fallback for text/other files if needed, or just error
              raise HTTPException(status_code=400, detail="Only PDF files are supported for analysis currently")
              
     except Exception as e:
@@ -271,11 +253,6 @@ async def generate_resume_endpoint(
     print(f"\n=== PDF GENERATION STARTED ===")
     print(f"User: {current_user.email}")
     print(f"Template: {template_id}")
-    print(f"Full Name: {current_user.full_name}")
-    print(f"Skills: {current_user.skills}")
-    print(f"Education items: {len(current_user.education)}")
-    print(f"Experience items: {len(current_user.experience)}")
-    print(f"Projects items: {len(current_user.projects)}")
     
     # 1. Extract Text from Uploaded PDF (if any)
     extracted_text = ""
@@ -288,16 +265,13 @@ async def generate_resume_endpoint(
                 text = page.extract_text()
                 if text:
                     extracted_text += text + "\n"
-            print(f"Extracted text length: {len(extracted_text)}")
         except Exception as e:
             print(f"Error reading resume file bytes: {e}")
 
     # 2. Setup PDF Document
     buffer = io.BytesIO()
     
-    # Adjust margins based on template for maximum space
-    # Modern typically needs less margin to look "full"
-    margins = 30 if template_id == 'modern' else 50
+    margins = 30 if template_id == 'modern' else 40
     doc = SimpleDocTemplate(
         buffer, 
         pagesize=letter,
@@ -313,9 +287,9 @@ async def generate_resume_endpoint(
         # Color Palettes
         colors_map = {
             'modern': {'primary': colors.HexColor('#2c3e50'), 'secondary': colors.HexColor('#34495e'), 'sidebar_bg': colors.HexColor('#f4f6f7')},
-            'classic': {'primary': colors.HexColor('#0e4c92'), 'secondary': colors.black, 'undeline': True}, # Image 1 Style
+            'classic': {'primary': colors.HexColor('#0e4c92'), 'secondary': colors.black, 'undeline': True},
             'minimal': {'primary': colors.black, 'secondary': colors.darkgray},
-            'creative': {'primary': colors.HexColor('#7c3aed'), 'secondary': colors.HexColor('#4c1d95')}, # Image 2 Right
+            'creative': {'primary': colors.HexColor('#7c3aed'), 'secondary': colors.HexColor('#4c1d95')},
             'executive': {'primary': colors.HexColor('#1a1a1a'), 'secondary': colors.HexColor('#444444')}
         }
         c = colors_map.get(t_id, colors_map['classic'])
@@ -326,6 +300,7 @@ async def generate_resume_endpoint(
             'header': ParagraphStyle('Header', parent=styles['Heading2'], fontSize=14, textColor=c['primary'], spaceBefore=12, spaceAfter=6),
             'body': ParagraphStyle('Body', parent=styles['Normal'], fontSize=10, textColor=colors.black, leading=14),
             'small': ParagraphStyle('Small', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#555555'), leading=11),
+            'list_item': ParagraphStyle('ListItem', parent=styles['Normal'], fontSize=10, textColor=colors.black, leading=14, leftIndent=10),
         }
         
         if t_id == 'modern':
@@ -335,13 +310,11 @@ async def generate_resume_endpoint(
             s['title'].fontName = 'Times-Bold'
             s['title'].alignment = 1 # Center
             s['header'].fontName = 'Helvetica-Bold'
-            # Add underline to header for Classic
             s['header'].borderWidth = 1
             s['header'].borderColor = c['primary']
             s['header'].borderPadding = 5
             s['header'].borderRadius = 0
-            # Note: Paragraph borders in simple ReportLab styles are tricky, usually done with Table or LineDrawing.
-            # We'll stick to color and font for now, and add lines via Flowables if needed.
+            
         elif t_id == 'creative':
             s['title'].fontName = 'Helvetica-Bold'
             s['title'].alignment = 1 # Center
@@ -353,61 +326,47 @@ async def generate_resume_endpoint(
 
     style_map = get_styles(template_id)
 
-    # 4. Generate Executive Summary
+    # 4. Generate Executive Summary (Optimized for 4-5 neat lines)
     def generate_executive_summary():
-        """Generate a 6-line executive summary based on user's profile"""
-        lines = []
+        """Generate a neat 4-5 line executive summary based on user's profile"""
         
-        # Line 1: Professional title and experience level
-        exp_level = current_user.experience_level or "Professional"
-        job_pref = current_user.job_preferences[0] if current_user.job_preferences else "Software Professional"
-        lines.append(f"{exp_level} {job_pref} with a proven track record of delivering high-quality solutions.")
+        role = current_user.job_preferences[0] if current_user.job_preferences else "Software Professional"
+        exp_level = current_user.experience_level or "Experienced"
+        years_exp = len(current_user.experience) if current_user.experience else 0
         
-        # Line 2: Years of experience and key strength
-        if current_user.experience:
-            years_exp = len(current_user.experience)
-            if years_exp > 0:
-                lines.append(f"Over {years_exp}+ years of hands-on experience in software development and technical leadership.")
-            else:
-                lines.append("Passionate about technology with strong foundation in software development principles.")
+        summary_sentences = []
+        
+        # 1. Identity
+        if years_exp > 0:
+            summary_sentences.append(f"{exp_level} {role} with over {years_exp}+ years of experience in designing and implementing scalable software solutions.")
         else:
-            lines.append("Dedicated professional with strong analytical and problem-solving capabilities.")
-        
-        # Line 3: Technical expertise
-        if current_user.skills and len(current_user.skills) >= 3:
-            top_skills = ", ".join(current_user.skills[:3])
-            lines.append(f"Expert in {top_skills}, with deep understanding of modern development practices.")
+            summary_sentences.append(f"Motivated {role} with a strong academic background and deep passion for technology and software development.")
+            
+        # 2. Competencies
+        if current_user.skills:
+            top_skills = ", ".join(current_user.skills[:5])
+            summary_sentences.append(f"Proficient in {top_skills}, utilizing modern best practices to deliver high-performance applications.")
         else:
-            lines.append("Proficient in multiple programming languages and frameworks with focus on best practices.")
-        
-        # Line 4: Project/Achievement focus
+            summary_sentences.append("Proficient in modern development methodologies with a focus on writing clean, maintainable code.")
+            
+        # 3. Achievements
         if current_user.projects and len(current_user.projects) > 0:
-            lines.append(f"Successfully delivered {len(current_user.projects)}+ projects, demonstrating strong project management and execution skills.")
-        elif current_user.experience and len(current_user.experience) > 0:
-            lines.append("Demonstrated ability to lead cross-functional teams and deliver complex technical solutions.")
+            summary_sentences.append(f"Successfully delivered {len(current_user.projects)} key projects, demonstrating exceptional problem-solving abilities and attention to detail.")
+        elif current_user.experience:
+             summary_sentences.append("Proven track record of collaborating with cross-functional teams to drive project success and innovation.")
         else:
-            lines.append("Strong track record of contributing to innovative projects and driving technical excellence.")
-        
-        # Line 5: Education and continuous learning
-        if current_user.education and len(current_user.education) > 0:
-            edu = current_user.education[0]
-            school = edu.get('school', 'prestigious institution')
-            lines.append(f"Holds degree from {school}, committed to continuous learning and professional development.")
-        else:
-            lines.append("Committed to continuous learning and staying updated with latest industry trends and technologies.")
-        
-        # Line 6: Career goals and value proposition
-        if current_user.job_preferences:
-            lines.append(f"Seeking opportunities to leverage expertise and drive innovation in challenging environments.")
-        else:
-            lines.append("Ready to contribute technical expertise and leadership to drive organizational success.")
-        
-        return " ".join(lines)
+             summary_sentences.append("Demonstrated ability to learn new technologies quickly and apply them to solve complex technical challenges.")
+
+        # 4. Goal
+        summary_sentences.append(f"Committed to continuous learning and leveraging expertise to contribute effectively to organizational growth while upholding high standards of quality. Strong communicator and team player, ready to take on challenging roles in a dynamic environment.")
+
+        # Return combined string
+        return " ".join(summary_sentences)
 
     # 5. Content Construction Functions
     
     def build_classic_layout():
-        """Single column, Centered Header, Blue Accents (Image 1)"""
+        """Single column, No Photo, Bullets for Skills/Projects"""
         # Header
         Story.append(Paragraph(current_user.full_name or "Your Name", style_map['title']))
         
@@ -423,9 +382,7 @@ async def generate_resume_endpoint(
         Story.append(Paragraph(contact, ParagraphStyle('CenterSmall', parent=style_map['small'], alignment=1)))
         Story.append(Spacer(1, 20))
 
-        # Dynamic Sections
-        
-        # 1. Executive Summary (Dynamic 6-line summary)
+        # 1. Executive Summary
         summary_text = generate_executive_summary()
         
         Story.append(Paragraph('Executive Summary', style_map['header']))
@@ -435,12 +392,17 @@ async def generate_resume_endpoint(
         Story.append(Paragraph(summary_text, style_map['body']))
         Story.append(Spacer(1, 10))
 
-        # 2. Skills
+        # 2. Skills (Bulleted)
         if current_user.skills:
             Story.append(Paragraph('Technical Skills', style_map['header']))
             Story.append(Table([['']], colWidths=['100%'], style=[('LINEBELOW', (0,0), (-1,-1), 1, line_color)]))
             Story.append(Spacer(1, 10))
-            Story.append(Paragraph(f"<b>Core Skills:</b> {', '.join(current_user.skills)}", style_map['body']))
+            
+            skills_bullets = []
+            for skill in current_user.skills:
+                skills_bullets.append(ListItem(Paragraph(skill, style_map['body']), bulletColor=colors.black, value='circle'))
+            
+            Story.append(ListFlowable(skills_bullets, bulletType='bullet', start='bulletchar', leftIndent=10))
             Story.append(Spacer(1, 10))
 
         # 3. Experience
@@ -473,29 +435,33 @@ async def generate_resume_endpoint(
                      Story.append(Paragraph(f"Grade: {edu.get('grade')}", style_map['small']))
                 Story.append(Spacer(1, 6))
 
-        # 5. Projects
+        # 5. Projects (Bulleted)
         if current_user.projects:
             Story.append(Paragraph('Projects', style_map['header']))
             Story.append(Table([['']], colWidths=['100%'], style=[('LINEBELOW', (0,0), (-1,-1), 1, line_color)]))
             Story.append(Spacer(1, 10))
+            
             for project in current_user.projects:
                 title_line = f"<b>{project.get('name', 'Project Name')}</b>"
                 if project.get('role'):
                     title_line += f" – {project.get('role')}"
                 Story.append(Paragraph(title_line, style_map['body']))
                 
-                if project.get('duration'):
-                    Story.append(Paragraph(f"<i>{project.get('duration')}</i>", style_map['small']))
-                
+                meta_parts = []
+                if project.get('duration'): meta_parts.append(project.get('duration'))
+                if project.get('link'): meta_parts.append(f"Link: {project.get('link')}")
+                if meta_parts:
+                    Story.append(Paragraph(" | ".join(meta_parts), style_map['small']))
+
+                proj_bullets = []
+                if project.get('description'):
+                    proj_bullets.append(ListItem(Paragraph(f"Description: {project.get('description')}", style_map['body']), bulletColor=colors.black))
                 if project.get('technologies'):
                     tech_list = project.get('technologies') if isinstance(project.get('technologies'), str) else ', '.join(project.get('technologies', []))
-                    Story.append(Paragraph(f"Technologies: {tech_list}", style_map['small']))
-                
-                if project.get('description'):
-                    Story.append(Paragraph(project.get('description'), style_map['body']))
-                
-                if project.get('link'):
-                    Story.append(Paragraph(f"Link: {project.get('link')}", style_map['small']))
+                    proj_bullets.append(ListItem(Paragraph(f"Tech Stack: {tech_list}", style_map['body']), bulletColor=colors.black))
+
+                if proj_bullets:
+                     Story.append(ListFlowable(proj_bullets, bulletType='bullet', start='bulletchar', leftIndent=10))
                 
                 Story.append(Spacer(1, 10))
 
@@ -505,16 +471,10 @@ async def generate_resume_endpoint(
 
 
     def build_modern_layout():
-        """Two Column Layout (Image 2 Left)"""
-        # Create data for a big 2-column table
-        # Left Col: Contact, Skills, Langs
-        # Right Col: Profile, Exp, Edu, Projects
-        
-        # Styles for Sidebar
+        """Two Column Layout (No Photo)"""
         sidebar_style = ParagraphStyle('Sidebar', parent=style_map['body'], fontSize=9, leading=12)
         sidebar_header = ParagraphStyle('SidebarHeader', parent=style_map['header'], fontSize=11, spaceBefore=10)
         
-        # Left Column Content
         left_content = []
         left_content.append(Paragraph("<b>CONTACT</b>", sidebar_header))
         left_content.append(Paragraph(current_user.email, sidebar_style))
@@ -526,7 +486,7 @@ async def generate_resume_endpoint(
         left_content.append(Paragraph("<b>SKILLS</b>", sidebar_header))
         if current_user.skills:
             for skill in current_user.skills:
-                left_content.append(Paragraph(f"• {skill}", sidebar_style))
+                 left_content.append(Paragraph(f"• {skill}", sidebar_style))
         else:
              left_content.append(Paragraph("No skills listed", sidebar_style))
         
@@ -540,7 +500,6 @@ async def generate_resume_endpoint(
                 left_content.append(Paragraph(f"{edu.get('startDate', '')}-{edu.get('endDate', '')}", sidebar_style))
                 left_content.append(Spacer(1, 5))
 
-        # Right Column Content
         right_content = []
         right_content.append(Paragraph(current_user.full_name or "Your Name", style_map['title']))
         right_content.append(Paragraph(f"<b>{getattr(current_user, 'experience_level', '') or 'Professional'}</b>", ParagraphStyle('RoleConfig', parent=style_map['body'], fontSize=12, textColor=colors.gray)))
@@ -556,7 +515,8 @@ async def generate_resume_endpoint(
                 right_content.append(Paragraph(f"<b>{exp.get('role', 'Role')}</b>", style_map['body']))
                 right_content.append(Paragraph(f"<i>{exp.get('company', 'Company')} | {exp.get('startDate', '')} - {exp.get('endDate', 'Present')}</i>", style_map['small']))
                 if exp.get('description'):
-                    right_content.append(Paragraph(f"• {exp.get('description')}", style_map['body']))
+                    desc = exp.get('description')
+                    right_content.append(Paragraph(f"• {desc}", style_map['body']))
                 right_content.append(Spacer(1, 10))
         
         if current_user.projects:
@@ -565,16 +525,14 @@ async def generate_resume_endpoint(
                 right_content.append(Paragraph(f"<b>{project.get('name', 'Project Name')}</b>", style_map['body']))
                 
                 details = []
-                if project.get('role'):
-                    details.append(project.get('role'))
-                if project.get('duration'):
-                    details.append(project.get('duration'))
+                if project.get('role'): details.append(project.get('role'))
+                if project.get('duration'): details.append(project.get('duration'))
                 if details:
                     right_content.append(Paragraph(f"<i>{' | '.join(details)}</i>", style_map['small']))
                 
                 if project.get('technologies'):
                     tech_list = project.get('technologies') if isinstance(project.get('technologies'), str) else ', '.join(project.get('technologies', []))
-                    right_content.append(Paragraph(f"Tech: {tech_list}", style_map['small']))
+                    right_content.append(Paragraph(f"• Tech: {tech_list}", style_map['small']))
                 
                 if project.get('description'):
                     right_content.append(Paragraph(f"• {project.get('description')}", style_map['body']))
@@ -585,7 +543,6 @@ async def generate_resume_endpoint(
              right_content.append(Paragraph("EXTRACTED", style_map['header']))
              right_content.append(Paragraph(extracted_text[:1000].replace('\n', '<br/>'), style_map['small']))
 
-        # Table for Layout
         col1_width = 160
         col2_width = 390
         
@@ -597,12 +554,11 @@ async def generate_resume_endpoint(
                 ('LEFTPADDING', (0,0), (0,0), 0),
                 ('RIGHTPADDING', (0,0), (0,0), 10),
                 ('LEFTPADDING', (1,0), (1,0), 20),
-                ('LINEBEFORE', (1,0), (1,0), 0.5, colors.lightgrey), # Vertical Separator
+                ('LINEBEFORE', (1,0), (1,0), 0.5, colors.lightgrey),
             ]
         )
         Story.append(t)
 
-    # 5. Select Layout Builder & 6. Build
     try:
         if template_id == 'modern':
             build_modern_layout()
@@ -611,214 +567,11 @@ async def generate_resume_endpoint(
 
         doc.build(Story)
         buffer.seek(0)
-        print(f"--- SUCCESS: PDF Built. Size: {buffer.getbuffer().nbytes} bytes ---")
         return StreamingResponse(
             buffer, 
             media_type="application/pdf", 
             headers={"Content-Disposition": f"attachment; filename=resume_{template_id}.pdf"}
         )
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         print(f"Error building PDF: {e}")
         raise HTTPException(status_code=500, detail=f"PDF Generation Failed: {str(e)}")
-
-# Auto-Apply Endpoints
-@app.get("/auto-apply/validate")
-def validate_auto_apply(current_user: models.User = Depends(auth.get_current_user)):
-    """
-    Validate if user profile is complete for auto-apply.
-    Returns missing fields and chatbot prompts if incomplete.
-    """
-    user_data = {
-        "full_name": current_user.full_name,
-        "email": current_user.email,
-        "location": current_user.location,
-        "address": current_user.address,
-        "experience_level": current_user.experience_level,
-        "skills": current_user.skills,
-        "education": current_user.education,
-        "experience": current_user.experience,
-        "job_preferences": current_user.job_preferences,
-        "projects": current_user.projects,
-        "linkedin_url": current_user.linkedin_url,
-        "github_url": current_user.github_url,
-        "portfolio_url": current_user.portfolio_url
-    }
-    
-    result = auto_apply_agent.validate_user_for_auto_apply(user_data)
-    return result
-
-class AutoApplyRequest(BaseModel):
-    job_ids: List[str]
-    use_real_automation: Optional[bool] = False  # Set to True to use real browser automation
-
-@app.post("/auto-apply/execute")
-async def execute_auto_apply(
-    request: AutoApplyRequest,
-    current_user: models.User = Depends(auth.get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Execute auto-apply for selected jobs.
-    
-    If use_real_automation=True, uses Selenium to actually apply to jobs.
-    Otherwise, simulates the application (for testing).
-    """
-    user_data = {
-        "full_name": current_user.full_name,
-        "email": current_user.email,
-        "location": current_user.location,
-        "address": current_user.address,
-        "phone": current_user.phone if hasattr(current_user, 'phone') else "",
-        "experience_level": current_user.experience_level,
-        "skills": current_user.skills,
-        "education": current_user.education,
-        "experience": current_user.experience,
-        "job_preferences": current_user.job_preferences,
-        "projects": current_user.projects,
-        "linkedin_url": current_user.linkedin_url,
-        "github_url": current_user.github_url,
-        "portfolio_url": current_user.portfolio_url
-    }
-    
-    # Fetch actual job details from database or search results
-    # For now, we'll use the job_ids to create job objects
-    # In production, you'd fetch these from your job database
-    jobs = []
-    for job_id in request.job_ids:
-        # TODO: Fetch actual job from database
-        # For now, create a mock job object
-        job = {
-            "id": job_id,
-            "title": f"Job {job_id}",
-            "company": f"Company {job_id}",
-            "location": "Remote",
-            "url": f"https://example.com/job/{job_id}"  # Replace with actual URL
-        }
-        jobs.append(job)
-    
-    # Use intelligent auto-apply agent if requested
-    if request.use_real_automation:
-        try:
-            # Import the intelligent agent
-            from intelligent_auto_apply_agent import process_auto_apply as intelligent_apply
-            
-            # Run in background to avoid timeout
-            result = intelligent_apply(user_data, jobs, headless=True)
-            return result
-            
-        except ImportError:
-            return {
-                "success": False,
-                "error": "Intelligent auto-apply agent not available. Please install selenium and webdriver-manager.",
-                "fallback": "Using simulation mode"
-            }
-        except Exception as e:
-            logger.error(f"Intelligent auto-apply error: {str(e)}")
-            return {
-                "success": False,
-                "error": f"Auto-apply failed: {str(e)}",
-                "details": "Check if Chrome/ChromeDriver is installed"
-            }
-    else:
-        # Use simulation mode (original behavior)
-        result = auto_apply_agent.process_auto_apply(user_data, jobs)
-        return result
-
-class ChatMessage(BaseModel):
-    message: str
-    field: Optional[str] = None
-
-@app.post("/chatbot/message")
-def process_chatbot_message(
-    chat_message: ChatMessage,
-    current_user: models.User = Depends(auth.get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Process chatbot messages and update user profile with collected information.
-    """
-    message = chat_message.message
-    field = chat_message.field
-    
-    response = {
-        "success": False,
-        "message": "",
-        "next_field": None,
-        "completed": False
-    }
-    
-    # Process based on field type
-    if field == "full_name":
-        current_user.full_name = message
-        response["success"] = True
-        response["message"] = f"Great! I've saved your name as {message}."
-        
-    elif field == "location":
-        current_user.location = message
-        response["success"] = True
-        response["message"] = f"Perfect! Location set to {message}."
-        
-    elif field == "experience_level":
-        current_user.experience_level = message
-        response["success"] = True
-        response["message"] = f"Got it! Experience level set to {message}."
-        
-    elif field == "skills":
-        # Parse comma-separated skills
-        skills = [s.strip() for s in message.split(",")]
-        current_user.skills = skills
-        response["success"] = True
-        response["message"] = f"Excellent! I've added {len(skills)} skills to your profile."
-        
-    elif field == "job_preferences":
-        # Parse comma-separated preferences
-        prefs = [p.strip() for p in message.split(",")]
-        current_user.job_preferences = prefs
-        response["success"] = True
-        response["message"] = f"Perfect! I've saved your job preferences."
-        
-    elif field == "education":
-        # For structured data, we'll need to guide the user through multiple steps
-        # For now, create a simple education entry
-        response["success"] = True
-        response["message"] = "I'll help you add your education. Please update it in your profile for detailed information."
-        
-    elif field == "experience":
-        # Similar to education
-        response["success"] = True
-        response["message"] = "I'll help you add your experience. Please update it in your profile for detailed information."
-    
-    else:
-        response["message"] = "I'm not sure what information you're providing. Could you clarify?"
-        return response
-    
-    # Save changes
-    if response["success"]:
-        db.commit()
-        db.refresh(current_user)
-        
-        # Check if profile is now complete
-        user_data = {
-            "full_name": current_user.full_name,
-            "email": current_user.email,
-            "location": current_user.location,
-            "experience_level": current_user.experience_level,
-            "skills": current_user.skills,
-            "education": current_user.education,
-            "experience": current_user.experience,
-            "job_preferences": current_user.job_preferences
-        }
-        
-        validation = auto_apply_agent.validate_user_for_auto_apply(user_data)
-        
-        if validation["can_auto_apply"]:
-            response["completed"] = True
-            response["message"] += " 🎉 Your profile is now complete! You can start using auto-apply."
-        elif validation["prompts"]:
-            # Get next missing field
-            response["next_field"] = validation["prompts"][0]
-            response["message"] += f" {validation['prompts'][0]['question']}"
-    
-    return response

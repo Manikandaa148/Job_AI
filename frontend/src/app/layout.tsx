@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Job AI - Find Your Dream Job",
-  description: "AI-powered job search and auto-apply platform",
+  title: "SmartJob Aggregator - Find Your Dream Job",
+  description: "AI-powered job aggregator and smart resume platform",
 };
 
 export default function RootLayout({
