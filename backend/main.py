@@ -11,10 +11,11 @@ import json
 # PDF Generation Imports
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, ListFlowable, ListItem
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, ListFlowable, ListItem, KeepTogether
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 import PyPDF2
+import random
 
 import models
 import schemas
@@ -268,10 +269,94 @@ async def generate_resume_endpoint(
         except Exception as e:
             print(f"Error reading resume file bytes: {e}")
 
+    # --- HELPER DATA & FUNCTIONS ---
+    
+    SKILL_CATEGORIES_MAPPING = {
+        'Programming': ['python', 'java', 'javascript', 'typescript', 'c++', 'c#', 'ruby', 'go', 'rust', 'php', 'swift', 'kotlin', 'sql', 'mysql', 'nosql', 'mongodb', 'r', 'html', 'css', 'bash', 'shell'],
+        'Libraries': ['react', 'angular', 'vue', 'next.js', 'node.js', 'django', 'fastapi', 'flask', 'spring', 'pandas', 'numpy', 'matplotlib', 'scikit-learn', 'tensorflow', 'pytorch', 'keras', 'opencv', 'jquery', 'bootstrap', 'tailwind css', 'redux'],
+        'Tools': ['git', 'docker', 'kubernetes', 'aws', 'azure', 'gcp', 'jenkins', 'jira', 'figma', 'postman', 'vscode', 'power bi', 'excel', 'tableau', 'spss', 'hadoop', 'spark', 'kafka', 'hive', 'maven', 'gradle', 'linux', 'unix'],
+        'Concepts': ['agile', 'scrum', 'ci/cd', 'rest api', 'graphql', 'machine learning', 'deep learning', 'data structures', 'algorithms', 'system design', 'microservices', 'oop', 'functional programming', 'data cleaning', 'data visualization', 'statistical analysis', 'hypothesis testing', 'web development', 'cloud computing']
+    }
+
+    ROLE_DESCRIPTIONS = {
+        'developer': [
+            "Designed and implemented scalable code modules using best practices, ensuring high performance and maintainability.",
+            "Participated in rigorous code reviews and contributed to continuous integration pipelines to maintain code quality.",
+            "Collaborated with cross-functional teams to integrate third-party APIs and enhance application functionality."
+        ],
+        'engineer': [
+            "Architected and developed robust software solutions to address complex technical challenges and business needs.",
+            "Optimized system/application performance, resulting in reduced latency and improved user experience.",
+            "Implemented automated testing frameworks and CI/CD pipelines to ensure reliable and rapid deployment."
+        ],
+        'analyst': [
+            "Analyzed large, complex datasets to extract actionable insights and drive strategic business decisions.",
+            "Created comprehensive dashboards and visualization reports to monitor key performance indicators (KPIs).",
+            "Collaborated with stakeholders to identify data requirements and deliver analytical solutions that improved operational efficiency."
+        ],
+        'manager': [
+            "Led and mentored a high-performing team of professionals, fostering a culture of collaboration and continuous improvement.",
+            "Defined project roadmaps, managed resources, and ensured timely delivery of projects within scope and budget.",
+            "Communicated project status, risks, and opportunities to senior leadership and stakeholders effectively."
+        ],
+        'generic': [
+            "Collaborated with cross-functional teams to define, design, and ship new features.",
+            "Ensured the performance, quality, and responsiveness of applications through rigorous testing and optimization.",
+            "Identified and corrected bottlenecks and fixed bugs to improve overall application stability."
+        ]
+    }
+
+    def generate_work_description(role, company):
+        role_lower = role.lower() if role else ""
+        if any(x in role_lower for x in ['analyst', 'data', 'scientist']):
+            return ROLE_DESCRIPTIONS['analyst']
+        elif any(x in role_lower for x in ['manager', 'lead', 'head', 'director']):
+            return ROLE_DESCRIPTIONS['manager']
+        elif 'engineer' in role_lower:
+            return ROLE_DESCRIPTIONS['engineer']
+        elif any(x in role_lower for x in ['developer', 'programmer', 'coder']):
+            return ROLE_DESCRIPTIONS['developer']
+        else:
+            return ROLE_DESCRIPTIONS['generic']
+
+    def categorize_skills(skills_list):
+        categorized = {k: [] for k in SKILL_CATEGORIES_MAPPING}
+        used_skills = set()
+        
+        # 1. Exact/Partial Match for known categories
+        for skill in skills_list:
+            skill_lower = skill.lower()
+            found = False
+            for category, keywords in SKILL_CATEGORIES_MAPPING.items():
+                if skill_lower in keywords: # Exact match preference
+                    categorized[category].append(skill)
+                    used_skills.add(skill)
+                    found = True
+                    break
+            
+            if not found:
+                 for category, keywords in SKILL_CATEGORIES_MAPPING.items():
+                    # Check if skill contains keyword (e.g. "React Native" contains "React")
+                    if any(k in skill_lower for k in keywords): 
+                        categorized[category].append(skill)
+                        used_skills.add(skill)
+                        found = True
+                        break
+        
+        # 2. Put remaining in Tools or Concepts based on heuristic or default to Tools
+        for skill in skills_list:
+            if skill not in used_skills:
+                # Fallback to Tools
+                categorized['Tools'].append(skill)
+
+        # Remove empty categories
+        return {k: v for k, v in categorized.items() if v}
+
     # 2. Setup PDF Document
     buffer = io.BytesIO()
     
-    margins = 30 if template_id == 'modern' else 40
+    # optimize margins for single page
+    margins = 0.5 * inch 
     doc = SimpleDocTemplate(
         buffer, 
         pagesize=letter,
@@ -296,11 +381,11 @@ async def generate_resume_endpoint(
         
         # Base Styles
         s = {
-            'title': ParagraphStyle('Title', parent=styles['Heading1'], fontSize=24, textColor=c['primary'], spaceAfter=10),
-            'header': ParagraphStyle('Header', parent=styles['Heading2'], fontSize=14, textColor=c['primary'], spaceBefore=12, spaceAfter=6),
-            'body': ParagraphStyle('Body', parent=styles['Normal'], fontSize=10, textColor=colors.black, leading=14),
-            'small': ParagraphStyle('Small', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#555555'), leading=11),
-            'list_item': ParagraphStyle('ListItem', parent=styles['Normal'], fontSize=10, textColor=colors.black, leading=14, leftIndent=10),
+            'title': ParagraphStyle('Title', parent=styles['Heading1'], fontSize=20, textColor=c['primary'], spaceAfter=6),
+            'header': ParagraphStyle('Header', parent=styles['Heading2'], fontSize=12, textColor=c['primary'], spaceBefore=8, spaceAfter=4),
+            'body': ParagraphStyle('Body', parent=styles['Normal'], fontSize=9, textColor=colors.black, leading=12),
+            'small': ParagraphStyle('Small', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#555555'), leading=10),
+            'list_item': ParagraphStyle('ListItem', parent=styles['Normal'], fontSize=9, textColor=colors.black, leading=12, leftIndent=10),
         }
         
         if t_id == 'modern':
@@ -308,11 +393,11 @@ async def generate_resume_endpoint(
             s['header'].textTransform = 'uppercase'
         elif t_id == 'classic':
             s['title'].fontName = 'Times-Bold'
-            s['title'].alignment = 1 # Center
+            # s['title'].alignment = 1 # Center - Keep Left for compact
             s['header'].fontName = 'Helvetica-Bold'
-            s['header'].borderWidth = 1
+            s['header'].borderWidth = 0.5 # Thinner border
             s['header'].borderColor = c['primary']
-            s['header'].borderPadding = 5
+            s['header'].borderPadding = 2
             s['header'].borderRadius = 0
             
         elif t_id == 'creative':
@@ -392,18 +477,32 @@ async def generate_resume_endpoint(
         Story.append(Paragraph(summary_text, style_map['body']))
         Story.append(Spacer(1, 10))
 
-        # 2. Skills (Bulleted)
+        # 2. Skills (Categorized)
         if current_user.skills:
             Story.append(Paragraph('Technical Skills', style_map['header']))
-            Story.append(Table([['']], colWidths=['100%'], style=[('LINEBELOW', (0,0), (-1,-1), 1, line_color)]))
-            Story.append(Spacer(1, 10))
+            Story.append(Table([['']], colWidths=['100%'], style=[('LINEBELOW', (0,0), (-1,-1), 0.5, line_color)]))
+            Story.append(Spacer(1, 4))
             
-            skills_bullets = []
-            for skill in current_user.skills:
-                skills_bullets.append(ListItem(Paragraph(skill, style_map['body']), bulletColor=colors.black, value='circle'))
+            categorized_skills = categorize_skills(current_user.skills)
             
-            Story.append(ListFlowable(skills_bullets, bulletType='bullet', start='bulletchar', leftIndent=10))
-            Story.append(Spacer(1, 10))
+            # Define specific order
+            order = ['Programming', 'Libraries', 'Tools', 'Concepts']
+            
+            for cat in order:
+                if cat in categorized_skills:
+                    skills_str = ", ".join(categorized_skills[cat])
+                    # Bold Category Name
+                    text = f"<b>{cat}:</b> {skills_str}"
+                    Story.append(Paragraph(text, style_map['body']))
+            
+            # Add any others not in the main 4 if needed (though map covers all)
+            for cat, skills in categorized_skills.items():
+                if cat not in order:
+                    skills_str = ", ".join(skills)
+                    text = f"<b>{cat}:</b> {skills_str}"
+                    Story.append(Paragraph(text, style_map['body']))
+                    
+            Story.append(Spacer(1, 6))
 
         # 3. Experience
         if current_user.experience:
@@ -419,9 +518,17 @@ async def generate_resume_endpoint(
                 date_line = f"<i>{exp.get('startDate', '')} - {exp.get('endDate', 'Present')}</i>"
                 Story.append(Paragraph(date_line, style_map['small']))
                 
-                if exp.get('description'):
+                if exp.get('description') and len(exp.get('description')) > 15:
                     Story.append(Paragraph(exp.get('description'), style_map['body']))
-                Story.append(Spacer(1, 10))
+                else:
+                    # Auto-generate description if missing or too short
+                    gen_desc = generate_work_description(exp.get('role'), exp.get('company'))
+                    bullets = []
+                    for point in gen_desc:
+                         bullets.append(ListItem(Paragraph(point, style_map['body']), bulletColor=colors.black, value='circle'))
+                    Story.append(ListFlowable(bullets, bulletType='bullet', start='bulletchar', leftIndent=10))
+                    
+                Story.append(Spacer(1, 6))
 
         # 4. Education
         if current_user.education:
@@ -484,10 +591,25 @@ async def generate_resume_endpoint(
         left_content.append(Spacer(1, 15))
         
         left_content.append(Paragraph("<b>SKILLS</b>", sidebar_header))
-        if current_user.skills:
-            for skill in current_user.skills:
-                 left_content.append(Paragraph(f"• {skill}", sidebar_style))
-        else:
+        categorized_skills = categorize_skills(current_user.skills)
+        order = ['Programming', 'Libraries', 'Tools', 'Concepts']
+        
+        for cat in order:
+            if cat in categorized_skills:
+                left_content.append(Paragraph(f"<b>{cat}</b>", sidebar_style))
+                for skill in categorized_skills[cat]:
+                     left_content.append(Paragraph(f"• {skill}", sidebar_style))
+                left_content.append(Spacer(1, 4))
+        
+        # Catch remaining
+        for cat in categorized_skills:
+            if cat not in order:
+                left_content.append(Paragraph(f"<b>{cat}</b>", sidebar_style))
+                for skill in categorized_skills[cat]:
+                     left_content.append(Paragraph(f"• {skill}", sidebar_style))
+                left_content.append(Spacer(1, 4))
+        
+        if not categorized_skills and not current_user.skills:
              left_content.append(Paragraph("No skills listed", sidebar_style))
         
         left_content.append(Spacer(1, 15))
@@ -514,10 +636,17 @@ async def generate_resume_endpoint(
             for exp in current_user.experience:
                 right_content.append(Paragraph(f"<b>{exp.get('role', 'Role')}</b>", style_map['body']))
                 right_content.append(Paragraph(f"<i>{exp.get('company', 'Company')} | {exp.get('startDate', '')} - {exp.get('endDate', 'Present')}</i>", style_map['small']))
-                if exp.get('description'):
+                
+                if exp.get('description') and len(exp.get('description')) > 15:
                     desc = exp.get('description')
                     right_content.append(Paragraph(f"• {desc}", style_map['body']))
-                right_content.append(Spacer(1, 10))
+                else:
+                    # Auto generate
+                    gen_desc = generate_work_description(exp.get('role'), exp.get('company'))
+                    for point in gen_desc:
+                        right_content.append(Paragraph(f"• {point}", style_map['body']))
+                        
+                right_content.append(Spacer(1, 6))
         
         if current_user.projects:
             right_content.append(Paragraph("PROJECTS", style_map['header']))

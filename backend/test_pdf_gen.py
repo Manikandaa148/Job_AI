@@ -13,7 +13,9 @@ def mock_get_current_user():
         address="123 Test St",
         location="Test City",
         experience_level="Mid-Level",
-        _skills='["Python", "React", "FastAPI"]'
+        _skills='["Python", "React", "FastAPI"]',
+        _experience='[{"role": "Software Developer", "company": "Tech Corp", "startDate": "2020", "endDate": "Present", "description": ""}]',
+        _education='[{"degree": "B.Tech", "field": "Computer Science", "school": "Tech University", "startDate": "2016", "endDate": "2020", "grade": "8.5"}]'
     )
 
 app.dependency_overrides[get_current_user] = mock_get_current_user
