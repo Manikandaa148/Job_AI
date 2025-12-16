@@ -69,7 +69,8 @@ def search_jobs(request: schemas.JobSearchRequest):
         request.location, 
         request.start,
         experience_level=request.experience_level,
-        platforms=request.platforms
+        platforms=request.platforms,
+        sort_by=request.sort_by
     )
     return jobs
 

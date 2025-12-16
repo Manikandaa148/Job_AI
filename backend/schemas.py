@@ -20,7 +20,8 @@ class JobSearchRequest(BaseModel):
     start: int = 1
     experience_level: Optional[List[str]] = None
     platforms: Optional[List[str]] = None
-    company_size: Optional[List[str]] = None  # Added company size filter
+    company_size: Optional[List[str]] = None
+    sort_by: str = "relevance"
 
 # User Schemas
 class UserBase(BaseModel):
