@@ -22,8 +22,9 @@ axios.interceptors.response.use(
             console.log('⚠ 401 Unauthorized - Token invalid, clearing...');
             isReloading = true;
             localStorage.removeItem('token');
-            // Don't reload, just let the app re-fetch with auto-login
-            console.log('Please refresh the page manually or click the user icon again');
+            if (typeof window !== 'undefined') {
+                window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }
@@ -48,7 +49,9 @@ export interface User {
     address?: string;
     location?: string;
     experience_level?: string;
+    total_experience?: string;
     skills?: string[];
+    preferred_locations?: string[];
     avatar?: string;
     education?: any[];
     experience?: any[];
@@ -58,6 +61,16 @@ export interface User {
     github_url?: string;
     portfolio_url?: string;
 }
+
+export const getNotifications = async (): Promise<any[]> => {
+    try {
+        const response = await axios.get(`${API_URL}/notifications`);
+        return response.data;
+    } catch (e) {
+        console.error('Failed to fetch notifications', e);
+        return [];
+    }
+};
 
 export const searchJobs = async (
     query: string,
@@ -146,6 +159,22 @@ export const analyzeResumeFile = async (file: File) => {
     }
 };
 
+export const uploadResume = async (file: File) => {
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await axios.post(`${API_URL}/users/me/resume`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error uploading resume:', error);
+        throw error;
+    }
+};
+
 // Auto-Apply API Functions
 export interface AutoApplyValidation {
     can_auto_apply: boolean;
@@ -177,3 +206,38 @@ export const sendChatMessage = async (message: string, field?: string): Promise<
     return response.data;
 };
 
+// Application Tracker API
+export interface Application {
+    id: number;
+    user_id: number;
+    job_id?: string;
+    job_title: string;
+    company: string;
+    location?: string;
+    status: 'Saved' | 'Applied' | 'Interviewing' | 'Offer' | 'Rejected';
+    applied_date: string;
+    notes?: string;
+    salary?: string;
+    job_url?: string;
+    platform?: string;
+    updated_at: string;
+}
+
+export const getApplications = async (): Promise<Application[]> => {
+    const response = await axios.get(`${API_URL}/applications`);
+    return response.data;
+};
+
+export const createApplication = async (app: Partial<Application>): Promise<Application> => {
+    const response = await axios.post(`${API_URL}/applications`, app);
+    return response.data;
+};
+
+export const updateApplication = async (id: number, data: { status?: string; notes?: string }): Promise<Application> => {
+    const response = await axios.put(`${API_URL}/applications/${id}`, data);
+    return response.data;
+};
+
+export const deleteApplication = async (id: number): Promise<void> => {
+    await axios.delete(`${API_URL}/applications/${id}`);
+};

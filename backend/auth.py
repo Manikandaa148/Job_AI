@@ -14,6 +14,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440 # 24 hours
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="login", auto_error=False)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against a hashed password using bcrypt"""
@@ -78,4 +79,18 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     user = db.query(models.User).filter(models.User.email == email).first()
     if user is None:
         raise credentials_exception
+    return user
+
+async def get_current_user_optional(token: str = Depends(oauth2_scheme_optional), db: Session = Depends(get_db)):
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            return None
+    except JWTError:
+        return None
+    
+    user = db.query(models.User).filter(models.User.email == email).first()
     return user

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Upload, FileText, Check, ChevronRight, Download, Loader2, Layout } from 'lucide-react';
-import { getProfile, generateResume } from '@/lib/api';
+import { X, Upload, FileText, Check, ChevronRight, Download, Loader2, Layout, Search, Sparkles, RefreshCw, ArrowRight } from 'lucide-react';
+import { getProfile, generateResume, analyzeResumeFile } from '@/lib/api';
+import { DonutChart } from './DonutChart';
 
 interface ResumeBuilderModalProps {
     isOpen: boolean;
@@ -170,6 +171,7 @@ function ResumePreview({ templateId, userData }: { templateId: string, userData:
 }
 
 export function ResumeBuilderModal({ isOpen, onClose }: ResumeBuilderModalProps) {
+    const [mode, setMode] = useState<'build' | 'analyze' | null>(null); // 'build' or 'analyze'
     const [step, setStep] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
     const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -177,10 +179,16 @@ export function ResumeBuilderModal({ isOpen, onClose }: ResumeBuilderModalProps)
     const [userData, setUserData] = useState<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Analysis State
+    const [analysisResult, setAnalysisResult] = useState<any>(null);
+
     useEffect(() => {
         if (isOpen) {
             loadUserData();
             setStep(1);
+            setMode(null);
+            setAnalysisResult(null);
+            setUploadedFile(null);
         }
     }, [isOpen]);
 
@@ -193,9 +201,23 @@ export function ResumeBuilderModal({ isOpen, onClose }: ResumeBuilderModalProps)
         }
     };
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            setUploadedFile(e.target.files[0]);
+            const file = e.target.files[0];
+            setUploadedFile(file);
+
+            if (mode === 'analyze') {
+                setIsLoading(true);
+                try {
+                    const data = await analyzeResumeFile(file);
+                    setAnalysisResult(data);
+                } catch (error) {
+                    console.error("Analysis failed", error);
+                    alert("Failed to analyze resume.");
+                } finally {
+                    setIsLoading(false);
+                }
+            }
         }
     };
 
@@ -203,9 +225,9 @@ export function ResumeBuilderModal({ isOpen, onClose }: ResumeBuilderModalProps)
         setIsLoading(true);
         try {
             const formData = new FormData();
-            if (uploadedFile) {
-                formData.append('resume_file', uploadedFile);
-            }
+            // In build mode, we only support Profile Data now as requested? 
+            // "remove the add Upload Existing Resume option from the resume builder Ai" 
+            // So we assume generating from profile data.
             formData.append('template_id', selectedTemplate);
 
             const blob = await generateResume(formData);
@@ -240,8 +262,8 @@ export function ResumeBuilderModal({ isOpen, onClose }: ResumeBuilderModalProps)
                             <FileText className="w-6 h-6" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-slate-900 dark:text-white">AI Resume Builder</h2>
-                            <p className="text-sm text-slate-500 dark:text-blue-200/60">Create a professional resume in seconds</p>
+                            <h2 className="text-xl font-bold text-slate-900 dark:text-white">AI Resume Assistant</h2>
+                            <p className="text-sm text-slate-500 dark:text-blue-200/60">Build a new resume or analyze your existing one</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 text-slate-500 dark:text-blue-200/60 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-full transition-colors">
@@ -251,187 +273,237 @@ export function ResumeBuilderModal({ isOpen, onClose }: ResumeBuilderModalProps)
 
                 {/* Content */}
                 <div className="flex-1 p-8">
-                    {/* Progress Steps */}
-                    <div className="flex items-center justify-center mb-10">
-                        <div className={`flex items-center gap-2 ${step >= 1 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`}>
-                            <div className="w-8 h-8 rounded-full border-2 border-current flex items-center justify-center font-bold">1</div>
-                            <span className="font-medium">Data Source</span>
-                        </div>
-                        <div className={`w-12 h-0.5 mx-4 ${step >= 2 ? 'bg-blue-600 dark:bg-blue-400' : 'bg-slate-200 dark:bg-white/10'}`}></div>
-                        <div className={`flex items-center gap-2 ${step >= 2 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`}>
-                            <div className="w-8 h-8 rounded-full border-2 border-current flex items-center justify-center font-bold">2</div>
-                            <span className="font-medium">Template</span>
-                        </div>
-                        <div className={`w-12 h-0.5 mx-4 ${step >= 3 ? 'bg-blue-600 dark:bg-blue-400' : 'bg-slate-200 dark:bg-white/10'}`}></div>
-                        <div className={`flex items-center gap-2 ${step >= 3 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`}>
-                            <div className="w-8 h-8 rounded-full border-2 border-current flex items-center justify-center font-bold">3</div>
-                            <span className="font-medium">Generate</span>
-                        </div>
-                    </div>
+                    {!mode ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+                            <button
+                                onClick={() => { setMode('build'); setStep(2); }} // Skip step 1 (source selection) since we only support profile data now
+                                className="flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-slate-200 dark:border-white/10 hover:border-blue-500 dark:hover:border-blue-500 bg-slate-50 dark:bg-white/5 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all group gap-4"
+                            >
+                                <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
+                                    <Layout className="w-8 h-8" />
+                                </div>
+                                <div className="text-center">
+                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Build Resume</h3>
+                                    <p className="text-sm text-slate-500 dark:text-blue-200/60">Generate a professional resume using your profile data.</p>
+                                </div>
+                            </button>
 
-                    {step === 1 && (
-                        <div className="space-y-6 max-w-2xl mx-auto animate-in slide-in-from-right-4 duration-300">
-                            <div className="text-center mb-8">
-                                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">How should we build your resume?</h3>
-                                <p className="text-slate-500 dark:text-blue-200/60">We can use your profile data or combine it with an existing resume.</p>
+                            <button
+                                onClick={() => { setMode('analyze'); }}
+                                className="flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-slate-200 dark:border-white/10 hover:border-purple-500 dark:hover:border-purple-500 bg-slate-50 dark:bg-white/5 hover:bg-purple-50 dark:hover:bg-purple-500/10 transition-all group gap-4"
+                            >
+                                <div className="w-16 h-16 rounded-full bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
+                                    <Search className="w-8 h-8" />
+                                </div>
+                                <div className="text-center">
+                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Resume Analyzer</h3>
+                                    <p className="text-sm text-slate-500 dark:text-blue-200/60">Get an ATS score and insights for your existing resume.</p>
+                                </div>
+                            </button>
+                        </div>
+                    ) : mode === 'analyze' ? (
+                        <div className="max-w-2xl mx-auto space-y-8 animate-in slide-in-from-right-4">
+                            <div className="flex items-center gap-2 mb-4">
+                                <button onClick={() => setMode(null)} className="flex items-center text-sm text-slate-500 hover:text-slate-900 dark:text-blue-200/60 dark:hover:text-white">
+                                    Back
+                                </button>
+                                <span className="text-slate-300">/</span>
+                                <span className="text-sm font-medium text-slate-900 dark:text-white">Resume Analyzer</span>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <button
-                                    onClick={() => { setUploadedFile(null); setStep(2); }}
-                                    className="p-6 rounded-xl border-2 border-slate-200 dark:border-white/10 hover:border-blue-500 dark:hover:border-blue-500 bg-slate-50 dark:bg-white/5 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-all text-left group"
-                                >
-                                    <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-4 group-hover:scale-110 transition-transform">
-                                        <Layout className="w-6 h-6" />
+                            <div className="border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl p-10 flex flex-col items-center justify-center text-center">
+                                {isLoading ? (
+                                    <div className="flex flex-col items-center">
+                                        <Loader2 className="w-10 h-10 text-purple-500 animate-spin mb-4" />
+                                        <p className="text-lg font-medium text-slate-900 dark:text-white">Analyzing your resume...</p>
+                                        <p className="text-sm text-slate-500">This might take a few seconds</p>
                                     </div>
-                                    <h4 className="font-semibold text-slate-900 dark:text-white mb-1">Use Profile Data</h4>
-                                    <p className="text-sm text-slate-500 dark:text-blue-200/60">Generate purely from your Job AI profile information.</p>
-                                </button>
+                                ) : analysisResult ? (
+                                    <div className="w-full space-y-6">
+                                        <div className="flex flex-col items-center">
+                                            <DonutChart score={analysisResult.score} size={140} strokeWidth={8} />
+                                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-4">ATS Score</h3>
+                                        </div>
 
-                                <button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className={`p-6 rounded-xl border-2 transition-all text-left relative overflow-hidden group ${uploadedFile ? 'border-green-500 bg-green-50 dark:bg-green-500/10' : 'border-slate-200 dark:border-white/10 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10'}`}
-                                >
-                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 transition-transform group-hover:scale-110 ${uploadedFile ? 'bg-green-100 text-green-600' : 'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400'}`}>
-                                        {uploadedFile ? <Check className="w-6 h-6" /> : <Upload className="w-6 h-6" />}
+                                        <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-6 text-left">
+                                            <h4 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                                                <Sparkles className="w-5 h-5 text-purple-500" /> Key Insights
+                                            </h4>
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <p className="text-sm font-medium text-slate-700 dark:text-blue-200 mb-2">Improvements Needed:</p>
+                                                    <ul className="space-y-2">
+                                                        {analysisResult.breakdown?.slice(0, 5).map((point: string, i: number) => (
+                                                            <li key={i} className="flex gap-2 text-sm text-slate-600 dark:text-blue-200/80">
+                                                                <span className="text-red-500 mt-0.5">•</span>
+                                                                {point}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={() => { setAnalysisResult(null); setUploadedFile(null); }}
+                                            className="px-6 py-2 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 text-slate-900 dark:text-white rounded-lg text-sm font-medium transition-colors"
+                                        >
+                                            Analyze Another Resume
+                                        </button>
                                     </div>
-                                    <h4 className="font-semibold text-slate-900 dark:text-white mb-1">
-                                        {uploadedFile ? 'Resume Uploaded' : 'Upload Existing Resume'}
-                                    </h4>
-                                    <p className="text-sm text-slate-500 dark:text-blue-200/60">
-                                        {uploadedFile ? uploadedFile.name : 'We\'ll extract details to enhance your profile data.'}
-                                    </p>
-                                    <input
-                                        type="file"
-                                        ref={fileInputRef}
-                                        className="hidden"
-                                        accept=".pdf,.docx"
-                                        onChange={handleFileUpload}
-                                    />
+                                ) : (
+                                    <>
+                                        <div className="w-16 h-16 bg-purple-100 dark:bg-purple-500/20 rounded-full flex items-center justify-center text-purple-600 dark:text-purple-400 mb-4">
+                                            <Upload className="w-8 h-8" />
+                                        </div>
+                                        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Upload your Resume</h3>
+                                        <p className="text-slate-500 dark:text-blue-200/60 mb-6 max-w-md">
+                                            Upload a PDF or DOCX file to get an instant ATS compatibility score and personalized improvement suggestions.
+                                        </p>
+                                        <button
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition-all hover:scale-105 shadow-lg shadow-purple-500/25"
+                                        >
+                                            Select File
+                                        </button>
+                                        <p className="mt-4 text-xs text-slate-400">Supported formats: PDF, DOCX (Max 5MB)</p>
+                                    </>
+                                )}
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    className="hidden"
+                                    accept=".pdf,.docx,.doc"
+                                    onChange={handleFileUpload}
+                                />
+                            </div>
+                        </div>
+                    ) : (
+                        // Build Mode (Existing Logic Logic but skipping source selection)
+                        <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+                            <div className="flex items-center gap-2 mb-4">
+                                <button onClick={() => setMode(null)} className="flex items-center text-sm text-slate-500 hover:text-slate-900 dark:text-blue-200/60 dark:hover:text-white">
+                                    Back
                                 </button>
+                                <span className="text-slate-300">/</span>
+                                <span className="text-sm font-medium text-slate-900 dark:text-white">Build Resume</span>
                             </div>
 
-                            {uploadedFile && (
-                                <div className="flex justify-end mt-6">
-                                    <button
-                                        onClick={() => setStep(2)}
-                                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors"
-                                    >
-                                        Next Step <ChevronRight className="w-4 h-4" />
-                                    </button>
+                            {/* Progress Indicator for Build Mode */}
+                            <div className="flex items-center justify-center mb-8">
+                                <div className={`flex items-center gap-2 ${step >= 2 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`}>
+                                    <div className="w-8 h-8 rounded-full border-2 border-current flex items-center justify-center font-bold">1</div>
+                                    <span className="font-medium">Template</span>
+                                </div>
+                                <div className={`w-12 h-0.5 mx-4 ${step >= 3 ? 'bg-blue-600 dark:bg-blue-400' : 'bg-slate-200 dark:bg-white/10'}`}></div>
+                                <div className={`flex items-center gap-2 ${step >= 3 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`}>
+                                    <div className="w-8 h-8 rounded-full border-2 border-current flex items-center justify-center font-bold">2</div>
+                                    <span className="font-medium">Generate</span>
+                                </div>
+                            </div>
+
+                            {step === 2 && (
+                                <div className="space-y-6">
+                                    <div className="text-center mb-6">
+                                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Choose a Template</h3>
+                                        <p className="text-slate-500 dark:text-blue-200/60">Select a professional design for your resume.</p>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        {TEMPLATES.map((template) => (
+                                            <div
+                                                key={template.id}
+                                                onClick={() => setSelectedTemplate(template.id)}
+                                                className={`cursor-pointer rounded-xl border-2 transition-all overflow-hidden relative group ${selectedTemplate === template.id ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-slate-200 dark:border-white/10 hover:border-blue-300'}`}
+                                            >
+                                                <div className="aspect-[1/1.4] bg-slate-100 dark:bg-slate-800 relative overflow-hidden rounded-t-lg">
+                                                    {/* Live Template Preview */}
+                                                    <div className="absolute inset-0 transform scale-[1] origin-top p-0">
+                                                        <ResumePreview templateId={template.id} userData={userData || { full_name: 'John Doe', email: 'john@example.com' }} />
+                                                    </div>
+
+                                                    {selectedTemplate === template.id && (
+                                                        <div className="absolute inset-0 bg-blue-500/10 flex items-center justify-center">
+                                                            <div className="bg-blue-500 text-white p-2 rounded-full shadow-lg">
+                                                                <Check className="w-6 h-6" />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-white/5">
+                                                    <h4 className="font-semibold text-slate-900 dark:text-white">{template.name}</h4>
+                                                    <p className="text-xs text-slate-500 mt-1">{template.description}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="flex justify-between mt-8">
+                                        <button
+                                            onClick={() => setMode(null)}
+                                            className="text-slate-500 hover:text-slate-700 dark:text-blue-200/60 dark:hover:text-white font-medium"
+                                        >
+                                            Back to Menu
+                                        </button>
+                                        <button
+                                            onClick={() => setStep(3)}
+                                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors"
+                                        >
+                                            Review & Generate <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </div>
                             )}
-                        </div>
-                    )}
 
-                    {step === 2 && (
-                        <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                            <div className="text-center mb-8">
-                                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Choose a Template</h3>
-                                <p className="text-slate-500 dark:text-blue-200/60">Select a professional design for your resume.</p>
-                            </div>
+                            {step === 3 && (
+                                <div className="space-y-6 max-w-2xl mx-auto">
+                                    <div className="text-center mb-8">
+                                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Ready to Build?</h3>
+                                        <p className="text-slate-500 dark:text-blue-200/60">We'll generate a PDF resume based on your profile and selections.</p>
+                                    </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                {TEMPLATES.map((template) => (
-                                    <div
-                                        key={template.id}
-                                        onClick={() => setSelectedTemplate(template.id)}
-                                        className={`cursor-pointer rounded-xl border-2 transition-all overflow-hidden relative group ${selectedTemplate === template.id ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-slate-200 dark:border-white/10 hover:border-blue-300'}`}
-                                    >
-                                        <div className="aspect-[1/1.4] bg-slate-100 dark:bg-slate-800 relative overflow-hidden rounded-t-lg">
-                                            {/* Live Template Preview */}
-                                            <div className="absolute inset-0 transform scale-[1] origin-top p-0">
-                                                <ResumePreview templateId={template.id} userData={userData || { full_name: 'John Doe', email: 'john@example.com' }} />
-                                            </div>
+                                    <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-6 border border-slate-200 dark:border-white/10 space-y-4">
+                                        <div className="flex justify-between items-center pb-4 border-b border-slate-200 dark:border-white/10">
+                                            <span className="text-slate-600 dark:text-blue-200/80">Selected Template</span>
+                                            <span className="font-medium text-slate-900 dark:text-white">
+                                                {TEMPLATES.find(t => t.id === selectedTemplate)?.name}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center pb-4 border-b border-slate-200 dark:border-white/10">
+                                            <span className="text-slate-600 dark:text-blue-200/80">Data Source</span>
+                                            <span className="font-medium text-slate-900 dark:text-white">
+                                                Profile Data Only
+                                            </span>
+                                        </div>
+                                    </div>
 
-                                            {selectedTemplate === template.id && (
-                                                <div className="absolute inset-0 bg-blue-500/10 flex items-center justify-center">
-                                                    <div className="bg-blue-500 text-white p-2 rounded-full shadow-lg">
-                                                        <Check className="w-6 h-6" />
-                                                    </div>
-                                                </div>
+                                    <div className="flex justify-between mt-8">
+                                        <button
+                                            onClick={() => setStep(2)}
+                                            className="text-slate-500 hover:text-slate-700 dark:text-blue-200/60 dark:hover:text-white font-medium"
+                                        >
+                                            Back
+                                        </button>
+                                        <button
+                                            onClick={handleGenerate}
+                                            disabled={isLoading}
+                                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-blue-500/25 transition-all hover:scale-105 disabled:opacity-70 disabled:hover:scale-100"
+                                        >
+                                            {isLoading ? (
+                                                <>
+                                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                                    Building...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Download className="w-5 h-5" />
+                                                    Generate PDF Resume
+                                                </>
                                             )}
-                                        </div>
-                                        <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-white/5">
-                                            <h4 className="font-semibold text-slate-900 dark:text-white">{template.name}</h4>
-                                            <p className="text-xs text-slate-500 mt-1">{template.description}</p>
-                                        </div>
+                                        </button>
                                     </div>
-                                ))}
-                            </div>
-
-                            <div className="flex justify-between mt-8">
-                                <button
-                                    onClick={() => setStep(1)}
-                                    className="text-slate-500 hover:text-slate-700 dark:text-blue-200/60 dark:hover:text-white font-medium"
-                                >
-                                    Back
-                                </button>
-                                <button
-                                    onClick={() => setStep(3)}
-                                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors"
-                                >
-                                    Review & Generate <ChevronRight className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {step === 3 && (
-                        <div className="space-y-6 max-w-2xl mx-auto animate-in slide-in-from-right-4 duration-300">
-                            <div className="text-center mb-8">
-                                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Ready to Build?</h3>
-                                <p className="text-slate-500 dark:text-blue-200/60">We'll generate a PDF resume based on your selections.</p>
-                            </div>
-
-                            <div className="bg-slate-50 dark:bg-white/5 rounded-xl p-6 border border-slate-200 dark:border-white/10 space-y-4">
-                                <div className="flex justify-between items-center pb-4 border-b border-slate-200 dark:border-white/10">
-                                    <span className="text-slate-600 dark:text-blue-200/80">Selected Template</span>
-                                    <span className="font-medium text-slate-900 dark:text-white">
-                                        {TEMPLATES.find(t => t.id === selectedTemplate)?.name}
-                                    </span>
                                 </div>
-                                <div className="flex justify-between items-center pb-4 border-b border-slate-200 dark:border-white/10">
-                                    <span className="text-slate-600 dark:text-blue-200/80">Data Source</span>
-                                    <span className="font-medium text-slate-900 dark:text-white">
-                                        {uploadedFile ? 'Profile + Uploaded Resume' : 'Profile Only'}
-                                    </span>
-                                </div>
-                                {uploadedFile && (
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-slate-600 dark:text-blue-200/80">Uploaded File</span>
-                                        <span className="font-medium text-slate-900 dark:text-white truncate max-w-[200px]">
-                                            {uploadedFile.name}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="flex justify-between mt-8">
-                                <button
-                                    onClick={() => setStep(2)}
-                                    className="text-slate-500 hover:text-slate-700 dark:text-blue-200/60 dark:hover:text-white font-medium"
-                                >
-                                    Back
-                                </button>
-                                <button
-                                    onClick={handleGenerate}
-                                    disabled={isLoading}
-                                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-blue-500/25 transition-all hover:scale-105 disabled:opacity-70 disabled:hover:scale-100"
-                                >
-                                    {isLoading ? (
-                                        <>
-                                            <Loader2 className="w-5 h-5 animate-spin" />
-                                            Building...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Download className="w-5 h-5" />
-                                            Generate PDF Resume
-                                        </>
-                                    )}
-                                </button>
-                            </div>
+                            )}
                         </div>
                     )}
                 </div>

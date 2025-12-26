@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
+from datetime import datetime
 
 # Job Schemas
 class Job(BaseModel):
@@ -20,8 +21,7 @@ class JobSearchRequest(BaseModel):
     start: int = 1
     experience_level: Optional[List[str]] = None
     platforms: Optional[List[str]] = None
-    company_size: Optional[List[str]] = None
-    sort_by: str = "relevance"
+    company_size: Optional[List[str]] = None  # Added company size filter
 
 # User Schemas
 class UserBase(BaseModel):
@@ -39,7 +39,9 @@ class UserUpdate(BaseModel):
     address: Optional[str] = None
     location: Optional[str] = None
     experience_level: Optional[str] = None
+    total_experience: Optional[str] = None
     skills: Optional[List[str]] = None
+    preferred_locations: Optional[List[str]] = None
     avatar: Optional[str] = None
     linkedin_url: Optional[str] = None
     github_url: Optional[str] = None
@@ -55,7 +57,9 @@ class UserResponse(UserBase):
     address: Optional[str] = None
     location: Optional[str] = None
     experience_level: Optional[str] = None
+    total_experience: Optional[str] = None
     skills: Optional[List[str]] = []
+    preferred_locations: Optional[List[str]] = []
     avatar: Optional[str] = None
     linkedin_url: Optional[str] = None
     github_url: Optional[str] = None
@@ -74,3 +78,32 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+
+# Application Schemas
+class ApplicationBase(BaseModel):
+    job_title: str
+    company: str
+    location: Optional[str] = None
+    status: Optional[str] = "Saved"
+    notes: Optional[str] = None
+    salary: Optional[str] = None
+    job_url: Optional[str] = None
+    platform: Optional[str] = None
+    job_id: Optional[str] = None
+
+class ApplicationCreate(ApplicationBase):
+    pass
+
+class ApplicationUpdate(BaseModel):
+    status: Optional[str] = None
+    notes: Optional[str] = None
+
+class ApplicationResponse(ApplicationBase):
+    id: int
+    user_id: int
+    applied_date: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+

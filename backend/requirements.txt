@@ -13,3 +13,4 @@ PyPDF2
 selenium
 webdriver-manager
 psycopg2-binary
+google-generativeai

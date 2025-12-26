@@ -1,7 +1,7 @@
 import { X, Briefcase, FileText, Sparkles, Building2 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getRecommendations } from '../lib/api';
+import { getRecommendations, getNotifications } from '../lib/api';
 
 interface Notification {
     id: string;
@@ -45,17 +45,7 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
                 }
             }
 
-            const baseNotifications: Notification[] = [
-                {
-                    id: '1',
-                    type: 'resume_analysis',
-                    title: 'We analysed your resume and found a few improvement areas',
-                    subtitle: 'Resume analyser',
-                    time: '1h ago',
-                    icon: <Sparkles className="w-5 h-5 text-yellow-500" />,
-                    isRead: false
-                },
-            ];
+            const baseNotifications: Notification[] = [];
 
             const jobNotifications: Notification[] = [];
 
@@ -110,24 +100,48 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
             }
 
             // 2. Fetch Skill Recommendations (New API)
-            let recNotifications: Notification[] = [];
             try {
-                const recommendations = await getRecommendations();
-                recNotifications = recommendations.map((rec, index) => ({
-                    id: `rec-${index}`,
-                    type: 'resume_analysis',
-                    title: `Recommended Skill: ${rec.skill}`,
-                    subtitle: `${rec.reason} (${rec.role})`,
-                    time: 'Just now',
-                    icon: <Sparkles className="w-5 h-5 text-purple-500" />,
+                // Fetch dynamic notifications from backend
+                const backendNotifications = await getNotifications();
+
+                // Map backend notifications to UI format
+                const mappedBackendNotifs: Notification[] = backendNotifications.map((bn: any) => ({
+                    id: bn.id,
+                    type: bn.type === 'alert' ? 'resume_analysis' : bn.type === 'job' ? 'job_alert' : 'news',
+                    title: bn.title,
+                    subtitle: bn.message,
+                    time: 'Live', // You might want real timestamps from backend
+                    icon: bn.type === 'alert' ? <Sparkles className="w-5 h-5 text-yellow-500" /> : <Briefcase className="w-5 h-5 text-blue-500" />,
+                    action: bn.action_label ? {
+                        label: bn.action_label,
+                        onClick: () => {
+                            if (bn.action_link.startsWith('http')) {
+                                window.open(bn.action_link, '_blank');
+                            } else if (bn.action_link.startsWith('/')) {
+                                router.push(bn.action_link);
+                            } else {
+                                router.push('/' + bn.action_link);
+                            }
+                            onClose();
+                        }
+                    } : undefined,
                     isRead: false
                 }));
-            } catch (error) {
-                // Silently fail if auth missing or API error
-                console.log("Could not fetch recommendations", error);
-            }
 
-            setNotifications([...recNotifications, ...baseNotifications, ...jobNotifications]);
+                const allNotifications = [...mappedBackendNotifs, ...baseNotifications, ...jobNotifications];
+                // Remove duplicates by ID
+                const uniqueIds = new Set();
+                const uniqueNotifications = allNotifications.filter(n => {
+                    if (uniqueIds.has(n.id)) return false;
+                    uniqueIds.add(n.id);
+                    return true;
+                });
+
+                setNotifications(uniqueNotifications);
+            } catch (error) {
+                console.log("Could not fetch notifications", error);
+                setNotifications([...baseNotifications, ...jobNotifications]);
+            }
         };
 
         fetchNotifications();

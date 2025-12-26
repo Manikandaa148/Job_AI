@@ -1,7 +1,7 @@
-import { User, Briefcase, MapPin, FileText, X, Upload, Plus, GraduationCap, Github, Linkedin, Globe, Trash2, Building, Save, Edit2 } from 'lucide-react';
+import { User, Briefcase, MapPin, FileText, X, Upload, Plus, GraduationCap, Github, Linkedin, Globe, Trash2, Building, Save, Edit2, Check, Loader2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { POPULAR_JOB_TITLES, POPULAR_LOCATIONS, POPULAR_SKILLS } from '@/lib/constants';
-import { getProfile, updateProfile } from '@/lib/api';
+import { getProfile, updateProfile, uploadResume } from '@/lib/api';
 import { ImageCropper } from './ImageCropper';
 import { DonutChart } from './DonutChart';
 import { RefreshCw } from 'lucide-react';
@@ -204,12 +204,14 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     address: user.address || '',
                     location: user.location || '',
                     experienceLevel: user.experience_level || 'Fresher',
+                    experience: user.total_experience || '', // Map total_experience string
                     skills: user.skills || [],
                     avatarImage: user.avatar || null,
                     avatarType: user.avatar ? 'image' : 'emoji',
                     education: educationWithIds,
                     workExperience: experienceWithIds,
                     jobPreferences: user.job_preferences || [],
+                    preferredLocations: user.preferred_locations || [],
                     projects: projectsWithIds,
                     linkedinUrl: user.linkedin_url || '',
                     githubUrl: user.github_url || '',
@@ -254,21 +256,17 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     }, [isOpen]);
 
     // Resume Analysis File Handler
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Resume Upload Handler (Storage Only)
+    const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            setFormData(prev => ({ ...prev, resume: file }));
-
-            // Analyze immediately
             setIsAnalyzing(true);
             try {
-                const data = await import('@/lib/api').then(m => m.analyzeResumeFile(file));
-                setAtsScore(data.score);
-                setAnalysisBreakdown(data.breakdown);
+                await uploadResume(file);
+                setFormData(prev => ({ ...prev, resume: file }));
             } catch (err: any) {
-                console.error("Resume analysis failed", err);
-                const msg = err.response?.data?.detail || "Could not analyze file";
-                alert(msg);
+                console.error("Resume upload failed", err);
+                alert("Failed to upload resume");
             } finally {
                 setIsAnalyzing(false);
             }
@@ -453,12 +451,14 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 address: formData.address,
                 location: formData.location,
                 experience_level: formData.experienceLevel,
+                total_experience: formData.experience, // Add total_experience
                 skills: formData.skills,
                 avatar: formData.avatarType === 'image' ? (formData.avatarImage || undefined) : undefined,
 
                 education: formData.education.map(({ isEditing, ...rest }) => rest), // Remove UI flags
                 experience: formData.workExperience.map(({ isEditing, ...rest }) => rest), // Remove UI flags
                 job_preferences: formData.jobPreferences,
+                preferred_locations: formData.preferredLocations, // Add preferred_locations
                 projects: formData.projects,
                 linkedin_url: formData.linkedinUrl,
                 github_url: formData.githubUrl,
@@ -1233,58 +1233,47 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                         </div>
                     </div>
 
-                    {/* Resume Upload */}
+                    {/* Resume Upload (Storage) */}
                     <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-white/5">
                         <h3 className="text-lg font-semibold text-slate-800 dark:text-blue-200 flex items-center">
-                            <FileText className="w-4 h-4 mr-2" /> Resume
+                            <FileText className="w-4 h-4 mr-2" /> Resume Storage
                         </h3>
                         <div
-                            className="border-2 border-dashed border-slate-200 dark:border-white/10 rounded-xl p-8 flex flex-col items-center justify-center hover:border-blue-500/30 hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer group"
+                            className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center transition-all cursor-pointer group ${formData.resume ? 'border-green-500/50 bg-green-50/50 dark:bg-green-500/5' : 'border-slate-200 dark:border-white/10 hover:border-blue-500/30 hover:bg-slate-50 dark:hover:bg-white/5'
+                                }`}
                             onClick={() => fileInputRef.current?.click()}
                         >
-                            <Upload className="w-8 h-8 text-slate-400 dark:text-blue-200/40 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors mb-3" />
-                            <div className="text-center">
-                                <p className="text-sm font-medium text-slate-700 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-300">
-                                    {formData.resume ? formData.resume.name : "Click to upload your resume"}
-                                </p>
-                                <p className="text-xs text-slate-500 dark:text-blue-200/40 mt-1">PDF, DOCX up to 5MB</p>
-                            </div>
+                            {isAnalyzing ? (
+                                <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-3" />
+                            ) : formData.resume ? (
+                                <div className="text-center">
+                                    <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+                                        <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                                    </div>
+                                    <p className="text-sm font-medium text-slate-700 dark:text-white">
+                                        {formData.resume.name}
+                                    </p>
+                                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">Uploaded & Saved to Profile</p>
+                                </div>
+                            ) : (
+                                <>
+                                    <Upload className="w-8 h-8 text-slate-400 dark:text-blue-200/40 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors mb-3" />
+                                    <div className="text-center">
+                                        <p className="text-sm font-medium text-slate-700 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-300">
+                                            Click to upload your resume
+                                        </p>
+                                        <p className="text-xs text-slate-500 dark:text-blue-200/40 mt-1">PDF, DOCX up to 5MB</p>
+                                    </div>
+                                </>
+                            )}
                             <input
                                 type="file"
                                 ref={fileInputRef}
                                 className="hidden"
                                 accept=".pdf,.doc,.docx"
-                                onChange={handleFileChange}
+                                onChange={handleResumeUpload}
                             />
                         </div>
-
-                        {/* Resume Analysis Result */}
-                        {(atsScore > 0 || isAnalyzing) && (
-                            <div className="flex items-center gap-6 p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 animate-in fade-in slide-in-from-top-2">
-                                <div className="flex-shrink-0">
-                                    <DonutChart score={atsScore} size={80} strokeWidth={6} />
-                                </div>
-                                <div className="flex-1">
-                                    <h4 className="text-sm font-semibold text-slate-800 dark:text-blue-100 flex items-center gap-2">
-                                        Resume ATS Score
-                                        {isAnalyzing && <RefreshCw className="w-3 h-3 animate-spin text-blue-500" />}
-                                    </h4>
-                                    <p className="text-xs text-slate-500 dark:text-blue-200/60 mb-2">
-                                        Based on content analysis of your uploaded resume.
-                                    </p>
-                                    {analysisBreakdown.length > 0 && (
-                                        <div className="text-xs text-slate-600 dark:text-slate-300">
-                                            <span className="font-medium text-red-500">Improvements needed:</span>
-                                            <ul className="list-disc list-inside mt-1 space-y-0.5">
-                                                {analysisBreakdown.slice(0, 3).map((tip, i) => (
-                                                    <li key={i}>{tip}</li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
                     </div>
 
                     <div className="pt-6 flex justify-end gap-3">

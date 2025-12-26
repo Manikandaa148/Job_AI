@@ -5,8 +5,13 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
+from dotenv import load_dotenv
 import io
 import json
+import os
+import shutil
+
+load_dotenv()
 
 # PDF Generation Imports
 from reportlab.lib import colors
@@ -21,6 +26,7 @@ import models
 import schemas
 import auth
 import resume_analyzer
+import chatbot
 from database import engine, get_db
 from scrapers.google_search import search_jobs_google
 
@@ -37,6 +43,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(chatbot.router)
 
 @app.get("/")
 def read_root():
@@ -69,8 +77,7 @@ def search_jobs(request: schemas.JobSearchRequest):
         request.location, 
         request.start,
         experience_level=request.experience_level,
-        platforms=request.platforms,
-        sort_by=request.sort_by
+        platforms=request.platforms
     )
     return jobs
 
@@ -102,6 +109,13 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    # Log login activity
+    try:
+        from activity_logger import log_activity
+        log_activity(user.email, "LOGIN", "User logged in successfully")
+    except Exception as e:
+        print(f"Logging failed: {e}")
+
     access_token = auth.create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -113,37 +127,198 @@ def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
 def update_user_me(user_update: schemas.UserUpdate, current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
     print(f"--- Updating user profile for: {current_user.email} ---")
     
+    changes = []
     if user_update.full_name is not None:
         current_user.full_name = user_update.full_name
+        changes.append("full_name")
     if user_update.address is not None:
         current_user.address = user_update.address
+        changes.append("address")
     if user_update.location is not None:
         current_user.location = user_update.location
+        changes.append("location")
     if user_update.experience_level is not None:
         current_user.experience_level = user_update.experience_level
+        changes.append("experience_level")
+    if user_update.total_experience is not None:
+        current_user.total_experience = user_update.total_experience
+        changes.append("total_experience")
     if user_update.skills is not None:
         current_user.skills = user_update.skills
+        changes.append("skills")
+    if user_update.preferred_locations is not None:
+        current_user.preferred_locations = user_update.preferred_locations
+        changes.append("preferred_locations")
     if user_update.avatar is not None:
         current_user.avatar = user_update.avatar
+        changes.append("avatar")
     if user_update.education is not None:
         current_user.education = user_update.education
+        changes.append("education")
     if user_update.experience is not None:
         current_user.experience = user_update.experience
+        changes.append("experience")
     if user_update.job_preferences is not None:
         current_user.job_preferences = user_update.job_preferences
+        changes.append("job_preferences")
     if user_update.projects is not None:
         current_user.projects = user_update.projects
+        changes.append("projects")
     if user_update.linkedin_url is not None:
         current_user.linkedin_url = user_update.linkedin_url
+        changes.append("linkedin_url")
     if user_update.github_url is not None:
         current_user.github_url = user_update.github_url
+        changes.append("github_url")
     if user_update.portfolio_url is not None:
         current_user.portfolio_url = user_update.portfolio_url
+        changes.append("portfolio_url")
         
     db.commit()
     db.refresh(current_user)
+    
+    # Log update activity
+    try:
+        from activity_logger import log_activity
+        log_activity(current_user.email, "PROFILE_UPDATE", f"Updated fields: {', '.join(changes)}")
+    except Exception as e:
+        print(f"Logging failed: {e}")
+
     print(f"--- Profile updated successfully ---")
     return current_user
+
+@app.get("/notifications")
+def get_notifications(current_user: models.User = Depends(auth.get_current_user)):
+    """
+    Generate dynamic notifications based on user profile, skills, and preferences.
+    """
+    try:
+        notifications = []
+        
+        # 1. Profile Completion Notification
+        missing_fields = []
+        try:
+            if not current_user.linkedin_url: missing_fields.append("LinkedIn")
+            if not current_user.github_url: missing_fields.append("GitHub")
+        except Exception as e:
+            print(f"Error checking profile fields: {e}")
+        
+        if missing_fields:
+            notifications.append({
+                "id": "profile-incomplete",
+                "type": "alert",
+                "title": "Profile Incomplete",
+                "message": f"Add {', '.join(missing_fields)} to boost your profile visibility.",
+                "action_label": "Update Profile",
+                "action_link": "?modal=profile" # Frontend sets specific query param or state
+            })
+
+        # 2. Resume & Analysis Notification
+        try:
+            # Check if user has uploaded a resume to profile
+            has_resume = hasattr(current_user, 'resume_path') and current_user.resume_path
+            
+            # Check if user has an analysis score
+            has_analysis = hasattr(current_user, 'resume_score') and current_user.resume_score is not None
+            
+            if has_analysis:
+                score = current_user.resume_score
+                msg = "Your resume score is great!" if score > 70 else "Your resume needs same improvement."
+                notifications.append({
+                    "id": "resume-score",
+                    "type": "alert" if score < 70 else "success",
+                    "title": f"Resume Score: {score}/100",
+                    "message": msg,
+                    "action_label": "Analyze Again",
+                    "action_link": "?modal=resume_builder"
+                })
+            elif has_resume:
+                # Resume uploaded but not analyzed (or old score logic)
+                notifications.append({
+                    "id": "resume-analyze",
+                    "type": "info",
+                    "title": "Analyze Your Resume",
+                    "message": "You have a resume saved. Get an AI analysis score now.",
+                    "action_label": "Analyze Now",
+                    "action_link": "?modal=resume_builder"
+                })
+            else:
+                # No resume at all
+                notifications.append({
+                    "id": "resume-missing",
+                    "type": "info",
+                    "title": "Upload Your Resume",
+                    "message": "Upload your resume to your profile to get started.",
+                    "action_label": "Upload Resume",
+                    "action_link": "?modal=profile"
+                })
+        except Exception as e:
+            print(f"Error checking resume score: {e}")
+        except Exception as e:
+            print(f"Error checking resume score: {e}")
+
+        # 3. Current Skills Highlight
+        try:
+            if current_user.skills and len(current_user.skills) > 0:
+                top_skills = ", ".join(current_user.skills[:3])
+                notifications.append({
+                    "id": "your-skills",
+                    "type": "success",
+                    "title": "Your Top Skills",
+                    "message": f"You are profiled as proficient in: {top_skills}. specific jobs are recommended based on this.",
+                    "action_label": "View Profile",
+                    "action_link": "?modal=profile"
+                })
+        except Exception as e:
+            print(f"Error checking skills: {e}")
+
+        # 4. Skill Recommendations (based on existing logic)
+        try:
+            recommendations = get_recommendations(current_user)
+            if recommendations:
+                top_rec = recommendations[0]
+                notifications.append({
+                    "id": f"skill-{top_rec['skill']}",
+                    "type": "info",
+                    "title": f"Recommended Skill: {top_rec['skill']}",
+                    "message": "Source: Google Search",
+                    "action_label": "Learn More",
+                    "action_link": f"https://www.google.com/search?q=learn+{top_rec['skill']}"
+                })
+        except Exception as e:
+             print(f"Error getting recommendations: {e}")
+
+        # 5. Job Alerts
+        try:
+            if current_user.job_preferences and current_user.preferred_locations:
+                role = current_user.job_preferences[0]
+                loc = current_user.preferred_locations[0]
+                notifications.append({
+                    "id": "new-jobs",
+                    "type": "success",
+                    "title": "New Jobs Found",
+                    "message": f"3 new {role} jobs in {loc} posted today.",
+                    "action_label": "View Jobs",
+                    "action_link": f"/?q={role}&location={loc}"
+                })
+            elif not current_user.job_preferences:
+                notifications.append({
+                    "id": "add-pref",
+                    "type": "info",
+                    "title": "Set Preferences",
+                    "message": "Add job preferences to get personalized job alerts.",
+                    "action_label": "Add Preference",
+                    "action_link": "?modal=profile"
+                })
+        except Exception as e:
+            print(f"Error checking job preferences: {e}")
+
+        return notifications
+        
+    except Exception as e:
+        print(f"CRITICAL ERROR in get_notifications: {e}")
+        # Return empty list instead of crashing
+        return []
 
 SKILL_KNOWLEDGE_BASE = {
     "Frontend Developer": ["React", "TypeScript", "Tailwind CSS", "Next.js", "Redux", "Web Performance"],
@@ -219,7 +394,11 @@ def get_suggestions(type: str, query: str = ""):
     return results[:10]
 
 @app.post("/analyze-resume-file")
-async def analyze_resume_file(file: UploadFile = File(...), current_user: models.User = Depends(auth.get_current_user)):
+async def analyze_resume_file(
+    file: UploadFile = File(...), 
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
     """Analyze an uploaded resume file (PDF only for now) and return an ATS score"""
     
     extracted_text = ""
@@ -244,7 +423,53 @@ async def analyze_resume_file(file: UploadFile = File(...), current_user: models
         raise HTTPException(status_code=400, detail="Could not extract text from file")
 
     analysis = resume_analyzer.analyze_resume_text(extracted_text)
+    
+    # Save score to user profile
+    try:
+        current_user.resume_score = analysis.get('score', 0)
+        db.commit()
+        db.refresh(current_user)
+        print(f"Saved resume score {current_user.resume_score} for {current_user.email}")
+    except Exception as e:
+        print(f"Failed to save resume score: {e}")
+
     return analysis
+
+    return analysis
+
+@app.post("/users/me/resume")
+async def upload_resume(
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Upload and store resume file for the user"""
+    try:
+        # Create uploads directory if not exists
+        upload_dir = "uploads/resumes"
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Generate unique filename
+        file_ext = os.path.splitext(file.filename)[1]
+        filename = f"user_{current_user.id}_resume{file_ext}"
+        file_path = os.path.join(upload_dir, filename)
+        
+        # Save file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        # Update user profile
+        current_user.resume_path = file_path
+        db.commit()
+        db.refresh(current_user)
+        
+        print(f"Resume saved to {file_path} for user {current_user.email}")
+        return {"filename": file.filename, "path": file_path, "message": "Resume uploaded successfully"}
+        
+    except Exception as e:
+        print(f"Error uploading resume: {e}")
+        raise HTTPException(status_code=500, detail="Failed to upload resume")
+
 
 @app.post("/generate-resume")
 async def generate_resume_endpoint(
@@ -705,3 +930,61 @@ async def generate_resume_endpoint(
     except Exception as e:
         print(f"Error building PDF: {e}")
         raise HTTPException(status_code=500, detail=f"PDF Generation Failed: {str(e)}")
+
+# --- Application Tracker Endpoints ---
+@app.get("/applications", response_model=List[schemas.ApplicationResponse])
+def get_applications(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all job applications for the current user"""
+    return db.query(models.Application).filter(models.Application.user_id == current_user.id).order_by(models.Application.updated_at.desc()).all()
+
+@app.post("/applications", response_model=schemas.ApplicationResponse)
+def create_application(
+    application: schemas.ApplicationCreate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Track a new job application"""
+    db_application = models.Application(**application.dict(), user_id=current_user.id)
+    db.add(db_application)
+    db.commit()
+    db.refresh(db_application)
+    return db_application
+
+@app.put("/applications/{app_id}", response_model=schemas.ApplicationResponse)
+def update_application(
+    app_id: int,
+    application: schemas.ApplicationUpdate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update application status or notes"""
+    db_app = db.query(models.Application).filter(models.Application.id == app_id, models.Application.user_id == current_user.id).first()
+    if not db_app:
+        raise HTTPException(status_code=404, detail="Application not found")
+    
+    if application.status:
+        db_app.status = application.status
+    if application.notes is not None:
+        db_app.notes = application.notes
+        
+    db.commit()
+    db.refresh(db_app)
+    return db_app
+
+@app.delete("/applications/{app_id}")
+def delete_application(
+    app_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a tracked application"""
+    db_app = db.query(models.Application).filter(models.Application.id == app_id, models.Application.user_id == current_user.id).first()
+    if not db_app:
+        raise HTTPException(status_code=404, detail="Application not found")
+        
+    db.delete(db_app)
+    db.commit()
+    return {"message": "Application deleted successfully"}

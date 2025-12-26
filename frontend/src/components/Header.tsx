@@ -29,6 +29,12 @@ export function Header() {
             if (initialTheme === 'dark') document.documentElement.classList.remove('light');
             else document.documentElement.classList.remove('dark');
         }
+
+        // Check for modal query params
+        const params = new URLSearchParams(window.location.search);
+        const modal = params.get('modal');
+        if (modal === 'profile') setIsProfileOpen(true);
+        if (modal === 'resume_builder') setIsResumeBuilderOpen(true);
     }, []);
 
     useEffect(() => {
@@ -86,7 +92,7 @@ export function Header() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16">
                         {/* Logo */}
-                        <div className="flex-shrink-0">
+                        <div className="flex-shrink-0 flex items-center gap-8">
                             <Link href="/" className="flex items-center gap-2">
                                 <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
                                     <span className="text-white font-bold text-lg">S</span>
@@ -95,6 +101,15 @@ export function Header() {
                                     SmartJob Aggregator
                                 </span>
                             </Link>
+
+                            <nav className="hidden md:flex items-center gap-6">
+                                <Link
+                                    href="/applications"
+                                    className="px-3 py-2 text-sm font-medium text-slate-600 dark:text-blue-100/80 hover:text-blue-600 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-all"
+                                >
+                                    Application Tracker
+                                </Link>
+                            </nav>
                         </div>
 
                         {/* Right Side Actions */}

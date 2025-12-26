@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { MapPin, Building2, ExternalLink, Calendar, DollarSign } from 'lucide-react';
-import { Job } from '@/lib/api';
+import { MapPin, Building2, ExternalLink, Calendar, DollarSign, Bookmark, Check } from 'lucide-react';
+import { Job, createApplication } from '@/lib/api';
 import { cn } from '@/lib/utils';
+
 
 interface JobCardProps {
     job: Job;
@@ -10,8 +11,35 @@ interface JobCardProps {
 }
 
 export function JobCard({ job, className, onMissingInfo }: JobCardProps) {
+    const [isSaved, setIsSaved] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleSave = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isSaved || isSaving) return;
+
+        setIsSaving(true);
+        try {
+            await createApplication({
+                job_title: job.title,
+                company: job.company,
+                location: job.location,
+                job_url: job.url,
+                platform: job.source,
+                status: 'Saved',
+                salary: job.salary
+            });
+            setIsSaved(true);
+        } catch (e) {
+            console.error("Failed to save", e);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     return (
-        <div className={cn("group relative bg-white dark:bg-white/5 backdrop-blur-sm border border-slate-200 dark:border-white/10 rounded-xl p-6 hover:bg-slate-50 dark:hover:bg-white/10 hover:shadow-xl hover:shadow-blue-900/20 transition-all duration-300 hover:-translate-y-1", className)}>
+        <div className={cn("group relative bg-white dark:bg-slate-900/50 backdrop-blur-sm border border-slate-200 dark:border-white/10 rounded-xl p-6 hover:bg-slate-50 dark:hover:bg-white/5 hover:shadow-xl hover:shadow-blue-900/10 transition-all duration-300 hover:-translate-y-1", className)}>
             <div className="flex justify-between items-start mb-4">
                 <div>
                     <h3 className="text-xl font-semibold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-300 transition-colors">
@@ -52,6 +80,20 @@ export function JobCard({ job, className, onMissingInfo }: JobCardProps) {
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                    onClick={handleSave}
+                    disabled={isSaved || isSaving}
+                    className={cn(
+                        "inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors border",
+                        isSaved
+                            ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800"
+                            : "text-slate-700 dark:text-blue-100 bg-white dark:bg-transparent border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5"
+                    )}
+                >
+                    {isSaved ? <Check className="w-4 h-4 mr-2" /> : <Bookmark className="w-4 h-4 mr-2" />}
+                    {isSaved ? "Saved" : "Track"}
+                </button>
+
                 <a
                     href={job.url}
                     target="_blank"
@@ -65,3 +107,4 @@ export function JobCard({ job, className, onMissingInfo }: JobCardProps) {
         </div>
     );
 }
+
